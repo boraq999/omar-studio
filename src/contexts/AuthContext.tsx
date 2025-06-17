@@ -5,7 +5,8 @@ import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { User } from '@/types/users';
 import { getCurrentUser as apiGetCurrentUser, logout as apiLogout } from '@/lib/authService';
-import { Skeleton } from '@/components/ui/skeleton';
+// Skeleton import is no longer needed here directly for a full page loader
+// import { Skeleton } from '@/components/ui/skeleton';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -18,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // isLoading is true initially
 
   const refetchUser = useCallback(async () => {
     setIsLoading(true);
@@ -41,22 +42,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // This effect runs on the client after the component mounts.
+    // `isLoading` is true initially, and set to false after refetchUser completes.
     refetchUser();
   }, [refetchUser]);
 
-  if (isLoading && typeof window !== 'undefined') {
-    // Basic loading state, can be replaced with a more sophisticated loader/skeleton
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="space-y-2">
-            <Skeleton className="h-12 w-12 rounded-full" />
-            <Skeleton className="h-4 w-[200px]" />
-            <Skeleton className="h-4 w-[150px]" />
-        </div>
-      </div>
-    );
-  }
-
+  // Removed the conditional full-page loader that caused hydration errors.
+  // The isLoading state is provided via context, and consuming components
+  // can decide how to display loading states.
+  // The server will render children with isLoading=true, and the client will initially
+  // also render children with isLoading=true, avoiding a mismatch.
+  // The useEffect will then trigger updates on the client.
 
   return (
     <AuthContext.Provider value={{ currentUser, isLoading, refetchUser, logout }}>
