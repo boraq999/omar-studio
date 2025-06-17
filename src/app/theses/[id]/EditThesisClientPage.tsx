@@ -3,44 +3,37 @@
 
 import { useState, useEffect } from 'react';
 import { ThesisForm } from '@/components/theses/ThesisForm';
-import type { Thesis, University, Specialization, Degree } from '@/types/api';
-// API function to get a single thesis by ID is missing from the spec.
-// We will rely on initialThesisData prop or show a message.
-import { Skeleton } from '@/components/ui/skeleton'; // Assuming Skeleton is available
+import type { Thesis, Degree } from '@/types/api';
+import { Skeleton } from '@/components/ui/skeleton'; 
 import { AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 
 interface EditThesisClientPageProps {
   thesisId: number;
-  initialThesisData?: Thesis; // Passed from server component if found
-  universities: University[];
-  specializations: Specialization[];
+  initialThesisData?: Thesis; 
   degrees: Degree[];
 }
 
 export function EditThesisClientPage({
   thesisId,
   initialThesisData,
-  universities,
-  specializations,
   degrees,
 }: EditThesisClientPageProps) {
   const [thesis, setThesis] = useState<Thesis | undefined>(initialThesisData);
-  const [isLoading, setIsLoading] = useState(!initialThesisData); // True if data wasn't pre-fetched
+  const [isLoading, setIsLoading] = useState(!initialThesisData); 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // This useEffect is a fallback if initialThesisData is not provided.
-    // Ideally, the server component should provide it.
-    // Without a GET /theses/:id endpoint, client-side fetching of a single thesis is hard.
     if (!initialThesisData) {
-      // Simulate loading and then show error as we can't fetch single thesis directly
       const timer = setTimeout(() => {
         setIsLoading(false);
         setError("تعذر تحميل بيانات الرسالة. لا يوجد API مباشر لجلب رسالة واحدة بالمعرف.");
       }, 1000);
       return () => clearTimeout(timer);
+    } else {
+      setThesis(initialThesisData); // Ensure thesis state is updated if initialThesisData is present
+      setIsLoading(false); // Ensure loading is false if data is present
     }
   }, [thesisId, initialThesisData]);
 
@@ -87,10 +80,7 @@ export function EditThesisClientPage({
   return (
     <ThesisForm
       initialData={thesis}
-      universities={universities}
-      specializations={specializations}
       degrees={degrees}
     />
   );
 }
-

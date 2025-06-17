@@ -2,14 +2,12 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ThesisForm } from '@/components/theses/ThesisForm';
-import { getUniversities, getSpecializations, getDegrees } from '@/lib/api';
+import { getDegrees } from '@/lib/api';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default async function AddThesisPage() {
-  const universities = await getUniversities().catch(() => []);
-  const specializations = await getSpecializations().catch(() => []);
   const degrees = await getDegrees().catch(() => []);
 
   return (
@@ -23,8 +21,6 @@ export default async function AddThesisPage() {
         </Button>
       </PageHeader>
       <ThesisForm
-        universities={universities}
-        specializations={specializations}
         degrees={degrees}
       />
     </AppLayout>
