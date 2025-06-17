@@ -104,7 +104,9 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       }
     } else {
       setAvailableSpecializations([]);
-      form.setValue('specialization_id', '');
+      if(!initialData) { // Only reset if not initial data load, or if university_id becomes truly empty
+        form.setValue('specialization_id', '');
+      }
     }
   }, [watchedUniversityId, universitiesWithSpecs, form, initialData]);
 
@@ -113,7 +115,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     setIsSubmitting(true);
 
     const selectedUniversity = universitiesWithSpecs.find(u => u.id.toString() === data.university_id);
-    const selectedSpecialization = selectedUniversity?.specializations.find(s => s.id.toString() === data.specialization_id);
+    const selectedSpecialization = availableSpecializations.find(s => s.id.toString() === data.specialization_id);
 
     if (!selectedUniversity || !selectedSpecialization) {
       toast({ title: "خطأ", description: "الرجاء اختيار جامعة وتخصص صالحين.", variant: "destructive" });
@@ -199,7 +201,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                       onValueChange={(value) => {
                         field.onChange(value);
                       }} 
-                      value={field.value} // Use value instead of defaultValue for controlled component
+                      value={field.value} 
                       disabled={isLoadingDropdowns}
                     >
                       <FormControl>
@@ -228,7 +230,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                     <FormLabel>التخصص</FormLabel>
                     <Select 
                       onValueChange={field.onChange} 
-                      value={field.value} // Use value for controlled component
+                      value={field.value} 
                       disabled={isLoadingDropdowns || !watchedUniversityId || availableSpecializations.length === 0}
                     >
                       <FormControl>
