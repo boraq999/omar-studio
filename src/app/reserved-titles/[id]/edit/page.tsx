@@ -4,7 +4,7 @@
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { EditReservedTitleClientPage } from './EditReservedTitleClientPage';
+import { EditReservedTitleClientPage } from '../EditReservedTitleClientPage';
 import { getLatestReservedTitles, searchReservedTitles } from '@/lib/api'; // Assuming search can find by ID or part of title
 import type { ReservedThesisTitle } from '@/types/api';
 import { ArrowRight } from 'lucide-react';
@@ -45,3 +45,4 @@ export default async function EditReservedTitlePage({ params }: { params: { id: 
     </AppLayout>
   );
 }
+

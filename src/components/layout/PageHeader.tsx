@@ -1,12 +1,13 @@
-import React from 'react';
+
+import type React from 'react';
 
 interface PageHeaderProps {
   title: string;
   description?: string;
-  children?: React.ReactNode; // For action buttons like "Add New"
+  children?: React.ReactNode;
 }
 
-const PageHeaderComponent = ({ title, description, children }: PageHeaderProps) => {
+export const PageHeader = ({ title, description, children }: PageHeaderProps) => {
   return (
     <div className="mb-6 border-b pb-4">
       <div className="flex items-center justify-between">
@@ -19,5 +20,3 @@ const PageHeaderComponent = ({ title, description, children }: PageHeaderProps) 
     </div>
   );
 };
-
-export const PageHeader = React.memo(PageHeaderComponent);
