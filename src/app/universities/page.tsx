@@ -2,20 +2,21 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { UniversitiesClientPage } from './UniversitiesClientPage';
-import { getUniversitiesWithSpecializationsAdmin, getSpecializations } from '@/lib/api';
+import { getUniversitiesWithSpecializationsAdmin } from '@/lib/api';
 
 export default async function UniversitiesPage() {
-  // Fetch initial data
+  // Fetch initial data for universities with their currently associated specializations
   const initialUniversities = await getUniversitiesWithSpecializationsAdmin().catch(() => []);
-  const allSpecializations = await getSpecializations().catch(() => []); // For adding existing specializations
+  // allSpecializations is no longer fetched here, UniversitiesClientPage will fetch it.
 
   return (
     <AppLayout>
       <PageHeader title="إدارة الجامعات والتخصصات" description="عرض الجامعات وإضافة تخصصات لها." />
       <UniversitiesClientPage 
         initialUniversities={initialUniversities}
-        allSpecializations={allSpecializations}
+        // allSpecializations prop removed
       />
     </AppLayout>
   );
 }
+

@@ -2,74 +2,133 @@
 "use client";
 
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Building, Library } from 'lucide-react';
+import { PlusCircle, Building, Library, Loader2 } from 'lucide-react';
 import type { UniversityWithSpecializationsAdmin, Specialization } from '@/types/api';
-import { addSpecializationToUniversity as apiAddSpecializationToUniversity, getUniversitiesWithSpecializationsAdmin } from '@/lib/api';
+import { addSpecializationToUniversity, getUniversitiesWithSpecializationsAdmin, getSpecializations as getAllSpecializationsApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Combobox } from '@/components/ui/combobox';
 
-const addSpecializationSchema = z.object({
-  specialization_name: z.string().min(3, { message: "اسم التخصص يجب أن يكون 3 أحرف على الأقل." }),
-  // Or specialization_id if choosing existing. For now, focusing on new.
+const addSpecializationDialogSchema = z.object({
+  specialization_input: z.string().min(1, { message: "الرجاء إدخال أو اختيار تخصص." }),
 });
-type AddSpecializationFormValues = z.infer<typeof addSpecializationSchema>;
+type AddSpecializationDialogFormValues = z.infer<typeof addSpecializationDialogSchema>;
 
 interface UniversitiesClientPageProps {
   initialUniversities: UniversityWithSpecializationsAdmin[];
-  allSpecializations: Specialization[]; // For potential dropdown of existing specializations
+  // allSpecializations prop is removed as it's fetched internally now
 }
 
-export function UniversitiesClientPage({ initialUniversities, allSpecializations }: UniversitiesClientPageProps) {
+export function UniversitiesClientPage({ initialUniversities }: UniversitiesClientPageProps) {
   const [universities, setUniversities] = useState<UniversityWithSpecializationsAdmin[]>(initialUniversities);
+  const [allSpecializationsData, setAllSpecializationsData] = useState<Specialization[]>([]);
+  const [isLoadingAllSpecializations, setIsLoadingAllSpecializations] = useState(true);
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityWithSpecializationsAdmin | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUniversities, setIsLoadingUniversities] = useState(false); // For refreshing universities list
   const { toast } = useToast();
 
-  const form = useForm<AddSpecializationFormValues>({
-    resolver: zodResolver(addSpecializationSchema),
-    defaultValues: { specialization_name: "" },
+  const dialogForm = useForm<AddSpecializationDialogFormValues>({
+    resolver: zodResolver(addSpecializationDialogSchema),
+    defaultValues: { specialization_input: "" },
   });
+
+  useEffect(() => {
+    async function fetchGlobalSpecializations() {
+      setIsLoadingAllSpecializations(true);
+      try {
+        const specs = await getAllSpecializationsApi();
+        setAllSpecializationsData(specs);
+      } catch (error) {
+        toast({ title: "خطأ", description: "فشل تحميل قائمة التخصصات العامة.", variant: "destructive" });
+      } finally {
+        setIsLoadingAllSpecializations(false);
+      }
+    }
+    fetchGlobalSpecializations();
+  }, [toast]);
   
   const refreshUniversities = async () => {
-    setIsLoading(true);
+    setIsLoadingUniversities(true);
     try {
         const updatedUniversities = await getUniversitiesWithSpecializationsAdmin();
         setUniversities(updatedUniversities);
     } catch (error) {
         toast({ title: "خطأ", description: "فشل تحديث قائمة الجامعات.", variant: "destructive" });
     } finally {
-        setIsLoading(false);
+        setIsLoadingUniversities(false);
     }
   };
 
-  const handleAddSpecialization = async (values: AddSpecializationFormValues) => {
+  const handleAddSpecialization = async (values: AddSpecializationDialogFormValues) => {
     if (!selectedUniversity) return;
     setIsSubmitting(true);
+
+    const inputValue = values.specialization_input;
+    const existingGlobalSpec = allSpecializationsData.find(s => s.name.toLowerCase() === inputValue.toLowerCase());
+
+    let payload: { specialization_name: string } | { specialization_id: number };
+    let specDisplayValue: string;
+
+    if (existingGlobalSpec) {
+      payload = { specialization_id: existingGlobalSpec.id };
+      specDisplayValue = existingGlobalSpec.name;
+    } else {
+      payload = { specialization_name: inputValue };
+      specDisplayValue = inputValue;
+    }
+
+    // Check if this specialization is already added to the current university
+    const isAlreadyAddedToCurrentUni = selectedUniversity.specializations.some(uniSpec => {
+        if (existingGlobalSpec) return uniSpec.id === existingGlobalSpec.id;
+        return uniSpec.name.toLowerCase() === inputValue.toLowerCase();
+    });
+
+    if (isAlreadyAddedToCurrentUni) {
+        toast({ title: "موجود بالفعل", description: `التخصص "${specDisplayValue}" مضاف بالفعل لجامعة "${selectedUniversity.name}".`, variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+
     try {
-      await apiAddSpecializationToUniversity(selectedUniversity.id, { specialization_name: values.specialization_name });
-      toast({ title: "نجاح", description: `تمت إضافة التخصص "${values.specialization_name}" إلى جامعة "${selectedUniversity.name}".` });
-      form.reset();
-      setSelectedUniversity(null); // Close dialog by resetting selectedUniversity
-      await refreshUniversities(); // Refresh the list
+      await apiAddSpecializationToUniversity(selectedUniversity.id, payload);
+      toast({ title: "نجاح", description: `تمت إضافة التخصص "${specDisplayValue}" إلى جامعة "${selectedUniversity.name}".` });
+      dialogForm.reset();
+      setSelectedUniversity(null); 
+      await refreshUniversities(); 
     } catch (error) {
       toast({ title: "خطأ", description: "لم نتمكن من إضافة التخصص. حاول مرة أخرى.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
+  
+  const watchedSpecializationInput = dialogForm.watch('specialization_input');
+
+  const isSpecializationAlreadyAddedForButton = useMemo(() => {
+    if (!selectedUniversity || !watchedSpecializationInput || allSpecializationsData.length === 0) return false;
+    
+    const inputValue = watchedSpecializationInput.toLowerCase();
+    const existingGlobalSpec = allSpecializationsData.find(s => s.name.toLowerCase() === inputValue);
+
+    return selectedUniversity.specializations.some(uniSpec => {
+      if (existingGlobalSpec) {
+        return uniSpec.id === existingGlobalSpec.id;
+      }
+      return uniSpec.name.toLowerCase() === inputValue;
+    });
+  }, [watchedSpecializationInput, selectedUniversity, allSpecializationsData]);
+
 
   if (initialUniversities === null) {
      return (
@@ -80,7 +139,7 @@ export function UniversitiesClientPage({ initialUniversities, allSpecializations
     );
   }
   
-  if (isLoading && universities.length === 0 && initialUniversities.length > 0) {
+  if (isLoadingUniversities && universities.length === 0 && initialUniversities.length > 0) {
      return (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
@@ -98,8 +157,7 @@ export function UniversitiesClientPage({ initialUniversities, allSpecializations
       );
   }
 
-
-  if (universities.length === 0) {
+  if (universities.length === 0 && !isLoadingUniversities) {
     return (
       <div className="text-center py-10 text-muted-foreground">
         <Building size={48} className="mx-auto mb-2" />
@@ -107,6 +165,8 @@ export function UniversitiesClientPage({ initialUniversities, allSpecializations
       </div>
     );
   }
+
+  const globalSpecializationOptions = allSpecializationsData.map(spec => ({ value: spec.name, label: spec.name }));
 
   return (
     <div className="space-y-6">
@@ -136,41 +196,67 @@ export function UniversitiesClientPage({ initialUniversities, allSpecializations
               </TableCell>
               <TableCell>
                 <Dialog open={selectedUniversity?.id === uni.id} onOpenChange={(isOpen) => {
-                    if (!isOpen) setSelectedUniversity(null); else setSelectedUniversity(uni);
-                    form.reset(); // Reset form when dialog opens/closes
+                    if (!isOpen) {
+                        setSelectedUniversity(null);
+                        dialogForm.reset(); // Reset form when dialog closes
+                    } else {
+                        setSelectedUniversity(uni);
+                    }
                 }}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={() => setSelectedUniversity(uni)}>
+                    <Button variant="outline" size="sm" onClick={() => {
+                        setSelectedUniversity(uni);
+                        dialogForm.reset(); // Reset on open as well
+                    }}>
                       <PlusCircle className="ml-1 h-4 w-4" /> إضافة تخصص
                     </Button>
                   </DialogTrigger>
                   {selectedUniversity?.id === uni.id && (
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle className="font-headline">إضافة تخصص جديد لجامعة: {selectedUniversity.name}</DialogTitle>
+                      <DialogTitle className="font-headline">إضافة تخصص لجامعة: {selectedUniversity.name}</DialogTitle>
                       <DialogDescription>
-                        أدخل اسم التخصص الجديد الذي ترغب بإضافته لهذه الجامعة.
+                        اختر تخصصاً موجوداً أو أدخل اسم تخصص جديد لإضافته لهذه الجامعة.
                       </DialogDescription>
                     </DialogHeader>
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(handleAddSpecialization)} className="space-y-4 py-4">
+                    <Form {...dialogForm}>
+                      <form onSubmit={dialogForm.handleSubmit(handleAddSpecialization)} className="space-y-4 py-4">
                         <FormField
-                          control={form.control}
-                          name="specialization_name"
+                          control={dialogForm.control}
+                          name="specialization_input"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>اسم التخصص الجديد</FormLabel>
+                              <FormLabel>التخصص</FormLabel>
                               <FormControl>
-                                <Input placeholder="مثال: هندسة البرمجيات" {...field} />
+                                <Combobox
+                                  options={globalSpecializationOptions}
+                                  value={field.value}
+                                  onChange={(value) => field.onChange(value)}
+                                  placeholder={
+                                    isLoadingAllSpecializations ? "جاري تحميل التخصصات..." :
+                                    globalSpecializationOptions.length === 0 ? "لا توجد تخصصات عامة" :
+                                    "اختر أو أدخل اسم التخصص"
+                                  }
+                                  searchPlaceholder="ابحث عن تخصص..."
+                                  notFoundText="لم يتم العثور على تخصص. يمكنك كتابة اسم جديد."
+                                  disabled={isLoadingAllSpecializations}
+                                />
                               </FormControl>
                               <FormMessage />
+                              {isSpecializationAlreadyAddedForButton && watchedSpecializationInput && (
+                                <p className="text-sm text-destructive">هذا التخصص مضاف بالفعل لهذه الجامعة.</p>
+                              )}
                             </FormItem>
                           )}
                         />
                         <DialogFooter>
                            <DialogClose asChild><Button type="button" variant="outline">إلغاء</Button></DialogClose>
-                           <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "جاري الإضافة..." : "إضافة التخصص"}
+                           <Button 
+                             type="submit" 
+                             disabled={isSubmitting || isLoadingAllSpecializations || isSpecializationAlreadyAddedForButton || !watchedSpecializationInput.trim()}
+                           >
+                            {(isSubmitting || isLoadingAllSpecializations) && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                            إضافة التخصص
                            </Button>
                         </DialogFooter>
                       </form>
@@ -184,6 +270,13 @@ export function UniversitiesClientPage({ initialUniversities, allSpecializations
         </TableBody>
       </Table>
       </Card>
+       {isLoadingUniversities && universities.length > 0 && (
+         <div className="text-center py-4">
+           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+           <p className="text-muted-foreground">جاري تحديث قائمة الجامعات...</p>
+         </div>
+       )}
     </div>
   );
 }
+
