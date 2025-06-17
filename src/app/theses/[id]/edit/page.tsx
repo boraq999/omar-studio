@@ -14,7 +14,7 @@
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { EditThesisClientPage } from './EditThesisClientPage';
+import { EditThesisClientPage } from '../EditThesisClientPage';
 import { getUniversities, getSpecializations, getDegrees, getLatestTheses, searchTheses } from '@/lib/api';
 import type { Thesis } from '@/types/api';
 import { ArrowRight } from 'lucide-react';
@@ -68,3 +68,4 @@ export default async function EditThesisPage({ params }: { params: { id: string 
     </AppLayout>
   );
 }
+
