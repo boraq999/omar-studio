@@ -1,3 +1,4 @@
+
 import type {
   GeneralStats,
   Thesis,
@@ -113,8 +114,8 @@ export const addSpecializationToUniversity = (universityId: number, data: { spec
 // 5. Archive
 export const getArchivedTheses = () => fetchApi<ArchivedThesis[]>('/archived-theses');
 export const restoreArchivedThesis = (id: number) => fetchApi<RestoreArchivedThesisResponse>(`/archived-theses/${id}/restore`, { method: 'POST' });
-// As per 5.3 in API doc
-export const permanentlyDeleteThesis = (id: number) => fetchApi<DeleteThesisResponse>(`/theses/${id}`, { method: 'DELETE' });
+// Updated as per user request
+export const permanentlyDeleteThesis = (id: number) => fetchApi<DeleteThesisResponse>(`/archived-theses/${id}`, { method: 'DELETE' });
 
 // 6. Reserved Titles
 export const getLatestReservedTitles = () => fetchApi<ReservedThesisTitle[]>('/reserved-thesis-titles-latest');
@@ -144,4 +145,3 @@ export const updateReservedTitle = (id: number, data: Omit<ReservedThesisTitle, 
 export const deleteReservedTitle = (id: number) => fetchApi<DeleteReservedTitleResponse>(`/reserved-thesis-titles/${id}`, { method: 'DELETE' });
 export const searchReservedTitles = (query: string) => fetchApi<ReservedThesisTitle[]>(`/reserved-thesis-titles-search?q=${encodeURIComponent(query)}`);
 export const searchReservedTitlesGuests = (query: string) => fetchApi<ReservedThesisTitleGuest[]>(`/reserved-thesis-titles-search-guests?q=${encodeURIComponent(query)}`);
-
