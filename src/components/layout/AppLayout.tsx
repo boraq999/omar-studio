@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -71,14 +72,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
       <SidebarProvider defaultOpen={true}>
         <Sidebar side="right" collapsible="icon" variant="sidebar">
-          <SidebarHeader className="p-4 flex items-center gap-2 justify-center">
+          <SidebarHeader className="p-6 flex items-center gap-3 justify-center">
              <Image src="https://placehold.co/40x40.png" alt="Al-Alem Logo" width={40} height={40} className="rounded-full" data-ai-hint="logo book" />
             <h1 className="font-headline text-xl font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">العالم</h1>
           </SidebarHeader>
           <SidebarContent>
             <SidebarNav />
           </SidebarContent>
-          <SidebarFooter className="p-2 group-data-[collapsible=icon]:hidden">
+          <SidebarFooter className="p-4 group-data-[collapsible=icon]:hidden">
             <p className="text-xs text-sidebar-foreground/70 text-center">
               &copy; {new Date().getFullYear()} المكتبة المركزية
             </p>

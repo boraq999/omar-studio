@@ -25,7 +25,7 @@ export function SidebarNav() {
         <SidebarMenuItem key={item.href}>
           <Link href={item.href}>
             <SidebarMenuButton
-              asChild={false} // Explicitly set asChild to false or remove if button is the direct child
+              asChild={false} 
               variant="default"
               className={cn(
                 pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
@@ -36,7 +36,7 @@ export function SidebarNav() {
               tooltip={item.label}
               isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
             >
-              <item.icon className="h-5 w-5 ml-2" />
+              <item.icon className="h-5 w-5" /> {/* Icon size is controlled by sidebarMenuButtonVariants base style now */}
               <span className="truncate font-headline">{item.label}</span>
             </SidebarMenuButton>
           </Link>
