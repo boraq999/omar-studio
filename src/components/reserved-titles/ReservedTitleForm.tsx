@@ -1,30 +1,31 @@
 
 "use client";
 
+import React, { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { arSA } from "date-fns/locale"; // For Arabic date localization
+import { arSA } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import type { ReservedThesisTitle } from "@/types/api";
-import { addReservedTitle, updateReservedTitle } from "@/lib/api";
+import type { ReservedThesisTitle, UniversityWithSpecializationsAdmin, Specialization as SpecializationType } from "@/types/api";
+import { addReservedTitle, updateReservedTitle, getUniversitiesWithSpecializationsAdmin } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import React from "react";
 
 const reservedTitleFormSchema = z.object({
   title: z.string().min(5, { message: "العنوان يجب أن يكون 5 أحرف على الأقل." }),
   person_name: z.string().min(3, { message: "اسم الشخص يجب أن يكون 3 أحرف على الأقل." }),
-  university: z.string().min(3, { message: "اسم الجامعة مطلوب." }),
-  specialization: z.string().min(3, { message: "التخصص مطلوب." }),
+  university_id: z.string().min(1, { message: "الرجاء اختيار الجامعة." }),
+  specialization_id: z.string().min(1, { message: "الرجاء اختيار التخصص." }),
   degree: z.string().min(2, { message: "الدرجة مطلوبة (مثال: ماجستير, دكتوراه)." }),
   date: z.date({ required_error: "تاريخ الحجز مطلوب." }),
 });
@@ -39,31 +40,94 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  
+  const [universitiesWithSpecs, setUniversitiesWithSpecs] = useState<UniversityWithSpecializationsAdmin[]>([]);
+  const [availableSpecializations, setAvailableSpecializations] = useState<SpecializationType[]>([]);
+  const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
 
-  const defaultValues = initialData
-    ? {
-        ...initialData,
-        date: initialData.date ? new Date(initialData.date) : new Date(),
-      }
-    : {
-        title: "",
-        person_name: "",
-        university: "",
-        specialization: "",
-        degree: "",
-        date: new Date(),
-      };
+  const defaultValues = {
+      title: initialData?.title || "",
+      person_name: initialData?.person_name || "",
+      university_id: "", 
+      specialization_id: "", 
+      degree: initialData?.degree || "",
+      date: initialData?.date ? new Date(initialData.date) : new Date(),
+  };
 
   const form = useForm<ReservedTitleFormValues>({
     resolver: zodResolver(reservedTitleFormSchema),
     defaultValues,
   });
 
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoadingDropdowns(true);
+      try {
+        const univs = await getUniversitiesWithSpecializationsAdmin();
+        setUniversitiesWithSpecs(univs);
+        if (initialData?.university) {
+          const foundUniv = univs.find(u => u.name === initialData.university);
+          if (foundUniv) {
+            form.setValue('university_id', foundUniv.id.toString());
+            setAvailableSpecializations(foundUniv.specializations);
+            if (initialData.specialization) {
+              const foundSpec = foundUniv.specializations.find(s => s.name === initialData.specialization);
+              if (foundSpec) {
+                form.setValue('specialization_id', foundSpec.id.toString());
+              }
+            }
+          }
+        }
+      } catch (err) {
+        toast({ title: "خطأ", description: "فشل تحميل بيانات الجامعات والتخصصات.", variant: "destructive" });
+      } finally {
+        setIsLoadingDropdowns(false);
+      }
+    }
+    fetchData();
+  }, [initialData, form, toast]);
+
+  const watchedUniversityId = form.watch('university_id');
+
+  useEffect(() => {
+    if (watchedUniversityId) {
+      const selectedUniv = universitiesWithSpecs.find(uni => uni.id.toString() === watchedUniversityId);
+      setAvailableSpecializations(selectedUniv ? selectedUniv.specializations : []);
+      // Only reset specialization if it's a user action, not initial load.
+      // Check if the current specialization_id belongs to the new list of available specializations.
+      const currentSpecId = form.getValues('specialization_id');
+      if (currentSpecId && selectedUniv && !selectedUniv.specializations.find(s => s.id.toString() === currentSpecId)) {
+         // If initialData specialization matches, do not reset, otherwise reset.
+         if(!(initialData && selectedUniv.name === initialData.university && selectedUniv.specializations.find(s => s.name === initialData.specialization && s.id.toString() === currentSpecId))){
+            form.setValue('specialization_id', '');
+         }
+      }
+    } else {
+      setAvailableSpecializations([]);
+      form.setValue('specialization_id', '');
+    }
+  }, [watchedUniversityId, universitiesWithSpecs, form, initialData]);
+
+
   async function onSubmit(data: ReservedTitleFormValues) {
     setIsSubmitting(true);
+
+    const selectedUniversity = universitiesWithSpecs.find(u => u.id.toString() === data.university_id);
+    const selectedSpecialization = selectedUniversity?.specializations.find(s => s.id.toString() === data.specialization_id);
+
+    if (!selectedUniversity || !selectedSpecialization) {
+      toast({ title: "خطأ", description: "الرجاء اختيار جامعة وتخصص صالحين.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+
     const apiData = {
-      ...data,
-      date: format(data.date, "yyyy-MM-dd"), // Format date for API
+      title: data.title,
+      person_name: data.person_name,
+      university: selectedUniversity.name,
+      specialization: selectedSpecialization.name,
+      degree: data.degree,
+      date: format(data.date, "yyyy-MM-dd"),
     };
 
     try {
@@ -127,13 +191,28 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
               />
               <FormField
                 control={form.control}
-                name="university"
+                name="university_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>الجامعة</FormLabel>
-                    <FormControl>
-                      <Input placeholder="مثال: جامعة طرابلس" {...field} />
-                    </FormControl>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                      }} 
+                      value={field.value} // Use value instead of defaultValue for controlled component
+                      disabled={isLoadingDropdowns}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : "اختر الجامعة"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {universitiesWithSpecs.map((uni) => (
+                          <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -143,13 +222,31 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <FormField
                 control={form.control}
-                name="specialization"
+                name="specialization_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>التخصص</FormLabel>
-                    <FormControl>
-                      <Input placeholder="مثال: علوم الحاسوب" {...field} />
-                    </FormControl>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value} // Use value for controlled component
+                      disabled={isLoadingDropdowns || !watchedUniversityId || availableSpecializations.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                           <SelectValue placeholder={
+                            isLoadingDropdowns ? "جاري التحميل..." : 
+                            !watchedUniversityId ? "اختر جامعة أولاً" : 
+                            availableSpecializations.length === 0 ? "لا توجد تخصصات" : 
+                            "اختر التخصص"
+                          } />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableSpecializations.map((spec) => (
+                          <SelectItem key={spec.id} value={spec.id.toString()}>{spec.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -205,8 +302,8 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
               />
             </div>
             
-            <Button type="submit" disabled={isSubmitting} className="w-full">
-               {isSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isSubmitting || isLoadingDropdowns} className="w-full">
+               {(isSubmitting || isLoadingDropdowns) && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
               {initialData ? "حفظ التعديلات" : "إضافة العنوان"}
             </Button>
           </form>
@@ -215,3 +312,5 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     </Card>
   );
 }
+
+    
