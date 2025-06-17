@@ -8,7 +8,6 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -20,13 +19,14 @@ import { useRouter } from "next/navigation";
 import type { ReservedThesisTitle, UniversityWithSpecializationsAdmin, Specialization as SpecializationType, Degree } from "@/types/api";
 import { addReservedTitle, updateReservedTitle, getUniversitiesWithSpecializationsAdmin, getDegrees } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Combobox } from "@/components/ui/combobox"; // Added Combobox import
 
 const reservedTitleFormSchema = z.object({
   title: z.string().min(5, { message: "العنوان يجب أن يكون 5 أحرف على الأقل." }),
   person_name: z.string().min(3, { message: "اسم الشخص يجب أن يكون 3 أحرف على الأقل." }),
   university_id: z.string().min(1, { message: "الرجاء اختيار الجامعة." }),
   specialization_id: z.string().min(1, { message: "الرجاء اختيار التخصص." }),
-  degree: z.string().min(1, { message: "الرجاء اختيار الدرجة العلمية." }), // Will store degree name
+  degree: z.string().min(1, { message: "الرجاء اختيار الدرجة العلمية." }),
   date: z.date({ required_error: "تاريخ الحجز مطلوب." }),
 });
 
@@ -51,7 +51,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       person_name: initialData?.person_name || "",
       university_id: "", 
       specialization_id: "", 
-      degree: initialData?.degree || "", // Expects degree name
+      degree: initialData?.degree || "",
       date: initialData?.date ? new Date(initialData.date.split('/').reverse().join('-')) : new Date(),
   };
 
@@ -79,9 +79,14 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
             if (foundUniv) {
               form.setValue('university_id', foundUniv.id.toString());
             }
-            form.setValue('degree', initialData.degree); // Set degree name
+            form.setValue('degree', initialData.degree);
             if (initialData.date) {
-              form.setValue('date', new Date(initialData.date.split('/').reverse().join('-')));
+               const dateParts = initialData.date.split('/');
+               if (dateParts.length === 3) {
+                form.setValue('date', new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0])));
+               } else {
+                 form.setValue('date', new Date(initialData.date)); // Fallback for other formats
+               }
             }
         }
 
@@ -93,7 +98,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     }
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData]); // form.setValue should not be in deps
+  }, [initialData]); 
 
   const watchedUniversityId = form.watch('university_id');
 
@@ -117,7 +122,6 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
            }
         }
       } else {
-        // Reset specialization if university changes or if current spec is not in new list
         if (currentSpecIdFromForm && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecIdFromForm)) {
           form.setValue('specialization_id', '');
         }
@@ -154,7 +158,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       person_name: data.person_name,
       university: selectedUniversity.name,
       specialization: selectedSpecialization.name,
-      degree: data.degree, // This is the degree name
+      degree: data.degree,
       date: format(data.date, "dd/MM/yyyy"), 
     };
 
@@ -183,7 +187,18 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
   useEffect(() => { 
     if (initialData && universitiesWithSpecs.length > 0 && degrees.length > 0) {
         const univMatch = universitiesWithSpecs.find(u => u.name === initialData.university);
-        const degreeMatch = initialData.degree; // Already a string name
+        const degreeMatch = initialData.degree;
+
+        const dateToSet = initialData.date 
+        ? (() => {
+            const dateParts = initialData.date.split('/');
+            if (dateParts.length === 3) {
+                // Assuming dd/MM/yyyy from API if split gives 3 parts
+                return new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]));
+            }
+            return new Date(initialData.date); // Fallback for other formats
+        })()
+        : new Date();
 
         form.reset({
             title: initialData.title,
@@ -191,13 +206,18 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
             university_id: univMatch?.id.toString() || "",
             specialization_id: "", 
             degree: degreeMatch || "",
-            date: initialData.date ? new Date(initialData.date.split('/').reverse().join('-')) : new Date(),
+            date: dateToSet,
         });
     } else if (!initialData) {
         form.reset(defaultValues);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData, universitiesWithSpecs, degrees]); // Removed form.reset from dependencies
+  }, [initialData, universitiesWithSpecs, degrees]);
+
+  const universityOptions = universitiesWithSpecs.map(uni => ({ value: uni.id.toString(), label: uni.name }));
+  const specializationOptions = availableSpecializations.map(spec => ({ value: spec.id.toString(), label: spec.name }));
+  const degreeOptions = degrees.map(deg => ({ value: deg.name, label: deg.name }));
+
 
   return (
     <Card className="max-w-2xl mx-auto shadow-xl">
@@ -243,26 +263,16 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>الجامعة</FormLabel>
-                    <Select 
-                      onValueChange={(value) => {
+                    <Combobox
+                      options={universityOptions}
+                      value={field.value}
+                      onChange={(value) => {
                         field.onChange(value);
-                        // form.setValue('specialization_id', ''); // Reset specialization on university change
-                      }} 
-                      value={field.value} 
-                      disabled={isLoadingDropdowns || universitiesWithSpecs.length === 0}
-                      dir="rtl"
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : universitiesWithSpecs.length === 0 ? "لا توجد جامعات" : "اختر الجامعة"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {universitiesWithSpecs.map((uni) => (
-                          <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        form.setValue('specialization_id', ''); // Reset specialization
+                      }}
+                      placeholder={isLoadingDropdowns ? "جاري التحميل..." : universityOptions.length === 0 ? "لا توجد جامعات" : "اختر الجامعة"}
+                      disabled={isLoadingDropdowns || universityOptions.length === 0}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -276,28 +286,18 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>التخصص</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value} 
-                      disabled={isLoadingDropdowns || !watchedUniversityId || availableSpecializations.length === 0}
-                      dir="rtl"
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                           <SelectValue placeholder={
-                            isLoadingDropdowns ? "جاري التحميل..." : 
-                            !watchedUniversityId ? "اختر جامعة أولاً" : 
-                            availableSpecializations.length === 0 ? "لا توجد تخصصات" : 
-                            "اختر التخصص"
-                          } />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {availableSpecializations.map((spec) => (
-                          <SelectItem key={spec.id} value={spec.id.toString()}>{spec.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                     <Combobox
+                      options={specializationOptions}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder={
+                        isLoadingDropdowns ? "جاري التحميل..." :
+                        !watchedUniversityId ? "اختر جامعة أولاً" :
+                        specializationOptions.length === 0 ? "لا توجد تخصصات" :
+                        "اختر التخصص"
+                      }
+                      disabled={isLoadingDropdowns || !watchedUniversityId || specializationOptions.length === 0}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -308,23 +308,13 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>الدرجة العلمية</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value} // Should be degree name string
-                      disabled={isLoadingDropdowns || degrees.length === 0}
-                      dir="rtl"
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : degrees.length === 0 ? "لا توجد درجات" : "اختر الدرجة العلمية"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {degrees.map((deg) => (
-                          <SelectItem key={deg.id} value={deg.name}>{deg.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                        options={degreeOptions}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder={isLoadingDropdowns ? "جاري التحميل..." : degreeOptions.length === 0 ? "لا توجد درجات" : "اختر الدرجة العلمية"}
+                        disabled={isLoadingDropdowns || degreeOptions.length === 0}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -377,9 +367,3 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     </Card>
   );
 }
-    
-
-    
-
-    
-

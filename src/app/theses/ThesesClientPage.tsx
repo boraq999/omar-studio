@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Archive, Edit, FileText, Search, Trash2, Download, FilterX } from 'lucide-react';
 import Link from 'next/link';
 import type { Thesis, University, Specialization, Degree, ThesisYear } from '@/types/api';
@@ -15,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox'; // Added Combobox import
 
 
 interface ThesesClientPageProps {
@@ -73,7 +73,7 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
   const handleClearFilters = () => {
     setSearchTerm('');
     setFilters({ university_id: '', specialization_id: '', degree_id: '', year: '' });
-    setTheses(initialTheses);
+    setTheses(initialTheses); // Assuming initialTheses is the full unfiltered list
   };
 
   const isAnyFilterActive = 
@@ -85,6 +85,11 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
 
   const isSearchButtonDisabled = isLoading || !isAnyFilterActive;
   const isClearFiltersButtonDisabled = isLoading || !isAnyFilterActive;
+  
+  const universityOptions = universities.map(uni => ({ value: uni.id.toString(), label: uni.name }));
+  const specializationOptions = specializations.map(spec => ({ value: spec.id.toString(), label: spec.name }));
+  const degreeOptions = degrees.map(deg => ({ value: deg.id.toString(), label: deg.name }));
+  const yearOptions = years.filter(y => y !== "").map(y => ({ value: y.toString(), label: y.toString() }));
 
   return (
     <div className="space-y-6">
@@ -98,30 +103,30 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
               onChange={(e) => setSearchTerm(e.target.value)}
               className="sm:col-span-2 md:col-span-3 lg:col-span-1"
             />
-            <Select value={filters.university_id} onValueChange={(value) => handleFilterChange('university_id', value)}>
-                <SelectTrigger><SelectValue placeholder="اختر الجامعة" /></SelectTrigger>
-                <SelectContent>
-                  {universities.map(uni => <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <Select value={filters.specialization_id} onValueChange={(value) => handleFilterChange('specialization_id', value)}>
-                <SelectTrigger><SelectValue placeholder="اختر التخصص" /></SelectTrigger>
-                <SelectContent>
-                  {specializations.map(spec => <SelectItem key={spec.id} value={spec.id.toString()}>{spec.name}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <Select value={filters.degree_id} onValueChange={(value) => handleFilterChange('degree_id', value)}>
-                <SelectTrigger><SelectValue placeholder="اختر الدرجة" /></SelectTrigger>
-                <SelectContent>
-                  {degrees.map(deg => <SelectItem key={deg.id} value={deg.id.toString()}>{deg.name}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <Select value={filters.year} onValueChange={(value) => handleFilterChange('year', value)}>
-                <SelectTrigger><SelectValue placeholder="اختر السنة" /></SelectTrigger>
-                <SelectContent>
-                  {years.filter(y => y !== "").map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                </SelectContent>
-            </Select>
+            <Combobox
+              options={universityOptions}
+              value={filters.university_id}
+              onChange={(value) => handleFilterChange('university_id', value)}
+              placeholder="اختر الجامعة"
+            />
+            <Combobox
+              options={specializationOptions}
+              value={filters.specialization_id}
+              onChange={(value) => handleFilterChange('specialization_id', value)}
+              placeholder="اختر التخصص"
+            />
+            <Combobox
+              options={degreeOptions}
+              value={filters.degree_id}
+              onChange={(value) => handleFilterChange('degree_id', value)}
+              placeholder="اختر الدرجة"
+            />
+            <Combobox
+              options={yearOptions}
+              value={filters.year}
+              onChange={(value) => handleFilterChange('year', value)}
+              placeholder="اختر السنة"
+            />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isClearFiltersButtonDisabled}>

@@ -8,7 +8,6 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -20,10 +19,11 @@ import { useRouter } from "next/navigation";
 import type { Thesis, Degree, UniversityWithSpecializationsAdmin, Specialization as SpecializationType } from "@/types/api";
 import { addThesis, updateThesis, getUniversitiesWithSpecializationsAdmin, getDegrees } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Combobox } from "@/components/ui/combobox"; // Added Combobox import
 
 const thesisFormSchema = z.object({
   title: z.string().min(5, { message: "العنوان يجب أن يكون 5 أحرف على الأقل." }),
-  year: z.date({ required_error: "تاريخ النشر مطلوب." }), // Changed from string to date
+  year: z.date({ required_error: "تاريخ النشر مطلوب." }),
   university_id: z.string().min(1, { message: "الرجاء اختيار الجامعة." }),
   specialization_id: z.string().min(1, { message: "الرجاء اختيار التخصص." }),
   degree_id: z.string().min(1, { message: "الرجاء اختيار الدرجة." }),
@@ -50,15 +50,15 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
   const defaultValues = initialData
     ? {
         title: initialData.title,
-        year: initialData.year ? new Date(parseInt(initialData.year, 10), 0, 1) : new Date(), // Parse year string to Date
-        university_id: initialData.university.id.toString(),
-        specialization_id: initialData.specialization.id.toString(),
-        degree_id: initialData.degree.id.toString(),
+        year: initialData.year ? new Date(parseInt(initialData.year, 10), 0, 1) : new Date(),
+        university_id: initialData.university?.id.toString() || "",
+        specialization_id: initialData.specialization?.id.toString() || "",
+        degree_id: initialData.degree?.id.toString() || "",
         author_name: initialData.author?.name || initialData.author_name || "",
       }
     : {
         title: "",
-        year: new Date(), // Default to current date for new thesis
+        year: new Date(),
         university_id: "",
         specialization_id: "",
         degree_id: "",
@@ -81,8 +81,15 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
         setUniversitiesWithSpecs(univs);
         setDegrees(fetchedDegrees);
 
-        if (initialData?.university?.id) {
-          form.setValue('university_id', initialData.university.id.toString());
+        if (initialData) {
+           form.reset({
+            title: initialData.title,
+            year: initialData.year ? new Date(parseInt(initialData.year, 10), 0, 1) : new Date(),
+            university_id: initialData.university?.id.toString() || "",
+            specialization_id: initialData.specialization?.id.toString() || "",
+            degree_id: initialData.degree?.id.toString() || "",
+            author_name: initialData.author?.name || initialData.author_name || "",
+           });
         }
       } catch (err) {
         toast({ title: "خطأ", description: "فشل تحميل بيانات الجامعات أو الدرجات.", variant: "destructive" });
@@ -92,42 +99,41 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
     }
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData?.university?.id]); 
+  }, [initialData]); 
 
   const watchedUniversityId = form.watch('university_id');
 
   useEffect(() => {
-    if (watchedUniversityId) {
+    if (watchedUniversityId && universitiesWithSpecs.length > 0) {
       const selectedUniv = universitiesWithSpecs.find(uni => uni.id.toString() === watchedUniversityId);
       const newAvailableSpecializations = selectedUniv ? selectedUniv.specializations : [];
       setAvailableSpecializations(newAvailableSpecializations);
       
-      if (initialData?.specialization?.id && selectedUniv && selectedUniv.id.toString() === initialData.university.id.toString()) {
-        const foundSpec = newAvailableSpecializations.find(s => s.id.toString() === initialData.specialization.id.toString());
-        if (foundSpec) {
-          form.setValue('specialization_id', initialData.specialization.id.toString());
-        } else {
-           form.setValue('specialization_id', ''); 
-        }
-      } else {
-        const currentSpecId = form.getValues('specialization_id');
-        if(currentSpecId && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecId)) {
-            form.setValue('specialization_id', '');
-        }
+      // Only set specialization_id if it's not already correctly set for the initialData or if university changes
+      const currentSpecId = form.getValues('specialization_id');
+      if (initialData?.specialization?.id.toString() === currentSpecId && initialData?.university?.id.toString() === watchedUniversityId) {
+        // It's already correctly set from initialData, do nothing to prevent reset
+      } else if (newAvailableSpecializations.length > 0 && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecId)) {
+         form.setValue('specialization_id', ''); // Reset if current spec not in new list
+      } else if (newAvailableSpecializations.length === 0) {
+        form.setValue('specialization_id', '');
       }
+
     } else {
       setAvailableSpecializations([]);
-      form.setValue('specialization_id', '');
+      if (form.getValues('specialization_id') !== '') {
+        form.setValue('specialization_id', '');
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedUniversityId, universitiesWithSpecs, initialData?.specialization?.id, initialData?.university?.id]);
+  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university?.id]);
 
 
   async function onSubmit(data: ThesisFormValues) {
     setIsSubmitting(true);
     const formData = new FormData();
     formData.append("title", data.title);
-    formData.append("year", format(data.year, "yyyy")); // Format date to year string
+    formData.append("year", format(data.year, "yyyy"));
     formData.append("university_id", data.university_id);
     formData.append("specialization_id", data.specialization_id);
     formData.append("degree_id", data.degree_id);
@@ -161,6 +167,11 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
       setIsSubmitting(false);
     }
   }
+
+  const universityOptions = universitiesWithSpecs.map(uni => ({ value: uni.id.toString(), label: uni.name }));
+  const specializationOptions = availableSpecializations.map(spec => ({ value: spec.id.toString(), label: spec.name }));
+  const degreeOptions = degrees.map(deg => ({ value: deg.id.toString(), label: deg.name }));
+
 
   return (
     <Card className="max-w-2xl mx-auto shadow-xl">
@@ -244,26 +255,16 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>الجامعة</FormLabel>
-                    <Select 
-                      onValueChange={(value) => {
+                    <Combobox
+                      options={universityOptions}
+                      value={field.value}
+                      onChange={(value) => {
                         field.onChange(value);
                         form.setValue('specialization_id', ''); 
-                      }} 
-                      value={field.value}
-                      disabled={isLoadingDropdowns || universitiesWithSpecs.length === 0}
-                      dir="rtl"
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : universitiesWithSpecs.length === 0 ? "لا توجد جامعات" : "اختر الجامعة"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {universitiesWithSpecs.map((uni) => (
-                          <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      }}
+                      placeholder={isLoadingDropdowns ? "جاري التحميل..." : universityOptions.length === 0 ? "لا توجد جامعات" : "اختر الجامعة"}
+                      disabled={isLoadingDropdowns || universityOptions.length === 0}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -274,28 +275,18 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>التخصص</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Combobox
+                      options={specializationOptions}
                       value={field.value}
-                      disabled={isLoadingDropdowns || !watchedUniversityId || availableSpecializations.length === 0}
-                      dir="rtl"
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                           <SelectValue placeholder={
-                            isLoadingDropdowns ? "جاري التحميل..." : 
-                            !watchedUniversityId ? "اختر جامعة أولاً" : 
-                            availableSpecializations.length === 0 ? "لا توجد تخصصات لهذه الجامعة" : 
-                            "اختر التخصص"
-                          } />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {availableSpecializations.map((spec) => (
-                          <SelectItem key={spec.id} value={spec.id.toString()}>{spec.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={field.onChange}
+                      placeholder={
+                        isLoadingDropdowns ? "جاري التحميل..." :
+                        !watchedUniversityId ? "اختر جامعة أولاً" :
+                        specializationOptions.length === 0 ? "لا توجد تخصصات" :
+                        "اختر التخصص"
+                      }
+                      disabled={isLoadingDropdowns || !watchedUniversityId || specializationOptions.length === 0}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -306,23 +297,13 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>الدرجة العلمية</FormLabel>
-                    <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value} 
-                        disabled={isLoadingDropdowns || degrees.length === 0} 
-                        dir="rtl"
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : degrees.length === 0 ? "لا توجد درجات" : "اختر الدرجة"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {degrees.map((deg) => (
-                          <SelectItem key={deg.id} value={deg.id.toString()}>{deg.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={degreeOptions}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder={isLoadingDropdowns ? "جاري التحميل..." : degreeOptions.length === 0 ? "لا توجد درجات" : "اختر الدرجة"}
+                      disabled={isLoadingDropdowns || degreeOptions.length === 0}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -360,6 +341,3 @@ export function ThesisForm({ initialData }: ThesisFormProps) {
     </Card>
   );
 }
-
-
-    
