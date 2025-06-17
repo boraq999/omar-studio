@@ -14,6 +14,7 @@ import { searchTheses as apiSearchTheses, archiveThesis as apiArchiveThesis } fr
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card } from '@/components/ui/card';
 
 
 interface ThesesClientPageProps {
