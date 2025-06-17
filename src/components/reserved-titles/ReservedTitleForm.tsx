@@ -69,13 +69,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
           const foundUniv = univs.find(u => u.name === initialData.university);
           if (foundUniv) {
             form.setValue('university_id', foundUniv.id.toString());
-            setAvailableSpecializations(foundUniv.specializations);
-            if (initialData.specialization) {
-              const foundSpec = foundUniv.specializations.find(s => s.name === initialData.specialization);
-              if (foundSpec) {
-                form.setValue('specialization_id', foundSpec.id.toString());
-              }
-            }
+            // This will trigger the other useEffect to set specializations
           }
         }
       } catch (err) {
@@ -86,7 +80,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     }
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData, toast]); // form removed as it causes re-fetch on every value change of university_id
+  }, []); // Fetch data only once on mount
 
   const watchedUniversityId = form.watch('university_id');
 
@@ -96,25 +90,28 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       const newAvailableSpecializations = selectedUniv ? selectedUniv.specializations : [];
       setAvailableSpecializations(newAvailableSpecializations);
       
-      const currentSpecId = form.getValues('specialization_id');
-      // If the current specialization_id is not in the new list of available specializations, reset it.
-      // But, don't reset if it's the initial load and the initialData specialization matches.
-      const isInitialSpecForThisUniv = initialData && 
-                                      selectedUniv && 
-                                      selectedUniv.name === initialData.university &&
-                                      newAvailableSpecializations.find(s => s.name === initialData.specialization && s.id.toString() === currentSpecId);
-
-      if (currentSpecId && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecId) && !isInitialSpecForThisUniv) {
-        form.setValue('specialization_id', '');
+      // If editing, try to set the initial specialization
+      if (initialData?.specialization && selectedUniv && selectedUniv.name === initialData.university) {
+        const foundSpec = newAvailableSpecializations.find(s => s.name === initialData.specialization);
+        if (foundSpec) {
+          form.setValue('specialization_id', foundSpec.id.toString());
+        } else {
+          // If initial specialization not found in the new list (e.g., data inconsistency or university changed by user)
+           form.setValue('specialization_id', ''); 
+        }
+      } else {
+         // If not editing or university changed, reset specialization if current one is not in new list
+        const currentSpecId = form.getValues('specialization_id');
+        if (currentSpecId && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecId)) {
+          form.setValue('specialization_id', '');
+        }
       }
     } else {
       setAvailableSpecializations([]);
-      if(!initialData) { 
-        form.setValue('specialization_id', '');
-      }
+      form.setValue('specialization_id', '');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedUniversityId, universitiesWithSpecs, initialData]); // form removed
+  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university, initialData?.specialization]); // form is implicitly a dependency due to form.setValue/getValues
 
 
   async function onSubmit(data: ReservedTitleFormValues) {
@@ -206,6 +203,9 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                     <Select 
                       onValueChange={(value) => {
                         field.onChange(value);
+                         // Manually trigger revalidation or reset for specialization_id if needed, 
+                         // though useEffect should handle population.
+                        form.setValue('specialization_id', ''); 
                       }} 
                       value={field.value} 
                       disabled={isLoadingDropdowns}
@@ -322,5 +322,6 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     </Card>
   );
 }
+    
 
     
