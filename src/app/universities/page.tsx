@@ -3,20 +3,23 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { UniversitiesClientPage } from './UniversitiesClientPage';
 import { getUniversitiesWithSpecializationsAdmin } from '@/lib/api';
+import type { UniversityWithSpecializationsAdmin } from '@/types/api';
 
 export default async function UniversitiesPage() {
-  // Fetch initial data for universities with their currently associated specializations
-  const initialUniversities = await getUniversitiesWithSpecializationsAdmin().catch(() => []);
-  // allSpecializations is no longer fetched here, UniversitiesClientPage will fetch it.
+  let initialUniversities: UniversityWithSpecializationsAdmin[] = [];
+  try {
+    initialUniversities = await getUniversitiesWithSpecializationsAdmin();
+  } catch (error) {
+    console.error("Failed to fetch initial universities on server:", error);
+    // initialUniversities will remain []
+  }
 
   return (
     <AppLayout>
       <PageHeader title="إدارة الجامعات والتخصصات" description="عرض الجامعات وإضافة تخصصات لها." />
-      <UniversitiesClientPage 
+      <UniversitiesClientPage
         initialUniversities={initialUniversities}
-        // allSpecializations prop removed
       />
     </AppLayout>
   );
 }
-

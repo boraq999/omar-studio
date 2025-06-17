@@ -26,16 +26,15 @@ type AddSpecializationDialogFormValues = z.infer<typeof addSpecializationDialogS
 
 interface UniversitiesClientPageProps {
   initialUniversities: UniversityWithSpecializationsAdmin[];
-  // allSpecializations prop is removed as it's fetched internally now
 }
 
 export function UniversitiesClientPage({ initialUniversities }: UniversitiesClientPageProps) {
-  const [universities, setUniversities] = useState<UniversityWithSpecializationsAdmin[]>(initialUniversities);
+  const [universities, setUniversities] = useState<UniversityWithSpecializationsAdmin[]>(initialUniversities || []);
   const [allSpecializationsData, setAllSpecializationsData] = useState<Specialization[]>([]);
   const [isLoadingAllSpecializations, setIsLoadingAllSpecializations] = useState(true);
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityWithSpecializationsAdmin | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingUniversities, setIsLoadingUniversities] = useState(false); // For refreshing universities list
+  const [isLoadingUniversities, setIsLoadingUniversities] = useState(false);
   const { toast } = useToast();
 
   const dialogForm = useForm<AddSpecializationDialogFormValues>({
@@ -48,23 +47,25 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
       setIsLoadingAllSpecializations(true);
       try {
         const specs = await getAllSpecializationsApi();
-        setAllSpecializationsData(specs);
+        setAllSpecializationsData(specs || []);
       } catch (error) {
         toast({ title: "خطأ", description: "فشل تحميل قائمة التخصصات العامة.", variant: "destructive" });
+        setAllSpecializationsData([]);
       } finally {
         setIsLoadingAllSpecializations(false);
       }
     }
     fetchGlobalSpecializations();
   }, [toast]);
-  
+
   const refreshUniversities = async () => {
     setIsLoadingUniversities(true);
     try {
         const updatedUniversities = await getUniversitiesWithSpecializationsAdmin();
-        setUniversities(updatedUniversities);
+        setUniversities(updatedUniversities || []);
     } catch (error) {
         toast({ title: "خطأ", description: "فشل تحديث قائمة الجامعات.", variant: "destructive" });
+        setUniversities(initialUniversities || []); // Fallback to initial or empty
     } finally {
         setIsLoadingUniversities(false);
     }
@@ -88,8 +89,8 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
       specDisplayValue = inputValue;
     }
 
-    // Check if this specialization is already added to the current university
-    const isAlreadyAddedToCurrentUni = selectedUniversity.specializations.some(uniSpec => {
+    const currentUniSpecializations = selectedUniversity.specializations && Array.isArray(selectedUniversity.specializations) ? selectedUniversity.specializations : [];
+    const isAlreadyAddedToCurrentUni = currentUniSpecializations.some(uniSpec => {
         if (existingGlobalSpec) return uniSpec.id === existingGlobalSpec.id;
         return uniSpec.name.toLowerCase() === inputValue.toLowerCase();
     });
@@ -101,27 +102,32 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
     }
 
     try {
-      await apiAddSpecializationToUniversity(selectedUniversity.id, payload);
+      await addSpecializationToUniversity(selectedUniversity.id, payload);
       toast({ title: "نجاح", description: `تمت إضافة التخصص "${specDisplayValue}" إلى جامعة "${selectedUniversity.name}".` });
       dialogForm.reset();
-      setSelectedUniversity(null); 
-      await refreshUniversities(); 
+      // setSelectedUniversity(null); // Keep dialog open to see change or close manually
+      await refreshUniversities();
+      // Manually update selectedUniversity to reflect changes if dialog stays open
+      const updatedUni = (await getUniversitiesWithSpecializationsAdmin()).find(u => u.id === selectedUniversity.id);
+      if (updatedUni) setSelectedUniversity(updatedUni); else setSelectedUniversity(null);
+
     } catch (error) {
       toast({ title: "خطأ", description: "لم نتمكن من إضافة التخصص. حاول مرة أخرى.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   const watchedSpecializationInput = dialogForm.watch('specialization_input');
 
   const isSpecializationAlreadyAddedForButton = useMemo(() => {
-    if (!selectedUniversity || !watchedSpecializationInput || allSpecializationsData.length === 0) return false;
-    
+    if (!selectedUniversity || !watchedSpecializationInput || !allSpecializationsData || allSpecializationsData.length === 0) return false;
+
     const inputValue = watchedSpecializationInput.toLowerCase();
     const existingGlobalSpec = allSpecializationsData.find(s => s.name.toLowerCase() === inputValue);
+    const uniSpecializations = selectedUniversity.specializations && Array.isArray(selectedUniversity.specializations) ? selectedUniversity.specializations : [];
 
-    return selectedUniversity.specializations.some(uniSpec => {
+    return uniSpecializations.some(uniSpec => {
       if (existingGlobalSpec) {
         return uniSpec.id === existingGlobalSpec.id;
       }
@@ -130,16 +136,7 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
   }, [watchedSpecializationInput, selectedUniversity, allSpecializationsData]);
 
 
-  if (initialUniversities === null) {
-     return (
-      <div className="text-center py-10 text-destructive">
-        <Building size={48} className="mx-auto mb-2" />
-        <p>فشل تحميل بيانات الجامعات. يرجى المحاولة مرة أخرى لاحقًا.</p>
-      </div>
-    );
-  }
-  
-  if (isLoadingUniversities && universities.length === 0 && initialUniversities.length > 0) {
+  if (isLoadingUniversities && (!universities || universities.length === 0)) {
      return (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
@@ -157,16 +154,16 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
       );
   }
 
-  if (universities.length === 0 && !isLoadingUniversities) {
+  if ((!universities || universities.length === 0) && !isLoadingUniversities) {
     return (
       <div className="text-center py-10 text-muted-foreground">
         <Building size={48} className="mx-auto mb-2" />
-        <p>لا توجد جامعات لعرضها حالياً.</p>
+        <p>لا توجد جامعات لعرضها حالياً. قد تحتاج إلى إضافتها أولاً.</p>
       </div>
     );
   }
 
-  const globalSpecializationOptions = allSpecializationsData.map(spec => ({ value: spec.name, label: spec.name }));
+  const globalSpecializationOptions = (allSpecializationsData || []).map(spec => ({ value: spec.name, label: spec.name }));
 
   return (
     <div className="space-y-6">
@@ -180,12 +177,12 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
           </TableRow>
         </TableHeader>
         <TableBody>
-          {universities.map((uni) => (
+          {(universities || []).map((uni) => (
             <TableRow key={uni.id}>
               <TableCell className="font-medium font-headline">{uni.name}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-2">
-                  {uni.specializations.length > 0 ? (
+                  {uni.specializations && Array.isArray(uni.specializations) && uni.specializations.length > 0 ? (
                     uni.specializations.map((spec) => (
                       <Badge key={spec.id} variant="secondary" className="text-sm">{spec.name}</Badge>
                     ))
@@ -198,15 +195,16 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
                 <Dialog open={selectedUniversity?.id === uni.id} onOpenChange={(isOpen) => {
                     if (!isOpen) {
                         setSelectedUniversity(null);
-                        dialogForm.reset(); // Reset form when dialog closes
+                        dialogForm.reset();
                     } else {
                         setSelectedUniversity(uni);
+                        dialogForm.reset(); // Reset form when opening
                     }
                 }}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" onClick={() => {
                         setSelectedUniversity(uni);
-                        dialogForm.reset(); // Reset on open as well
+                        dialogForm.reset();
                     }}>
                       <PlusCircle className="ml-1 h-4 w-4" /> إضافة تخصص
                     </Button>
@@ -239,7 +237,7 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
                                   }
                                   searchPlaceholder="ابحث عن تخصص..."
                                   notFoundText="لم يتم العثور على تخصص. يمكنك كتابة اسم جديد."
-                                  disabled={isLoadingAllSpecializations}
+                                  disabled={isLoadingAllSpecializations || globalSpecializationOptions.length === 0 && !isLoadingAllSpecializations}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -251,9 +249,9 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
                         />
                         <DialogFooter>
                            <DialogClose asChild><Button type="button" variant="outline">إلغاء</Button></DialogClose>
-                           <Button 
-                             type="submit" 
-                             disabled={isSubmitting || isLoadingAllSpecializations || isSpecializationAlreadyAddedForButton || !watchedSpecializationInput.trim()}
+                           <Button
+                             type="submit"
+                             disabled={isSubmitting || isLoadingAllSpecializations || isSpecializationAlreadyAddedForButton || !watchedSpecializationInput?.trim()}
                            >
                             {(isSubmitting || isLoadingAllSpecializations) && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                             إضافة التخصص
@@ -270,7 +268,7 @@ export function UniversitiesClientPage({ initialUniversities }: UniversitiesClie
         </TableBody>
       </Table>
       </Card>
-       {isLoadingUniversities && universities.length > 0 && (
+       {isLoadingUniversities && universities && universities.length > 0 && (
          <div className="text-center py-4">
            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
            <p className="text-muted-foreground">جاري تحديث قائمة الجامعات...</p>
