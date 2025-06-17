@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,19 +15,19 @@ body {
     --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 160 18% 55.1%; /* Soft Teal #74A695 */
+    --primary: 160 18% 55.1%; /* Soft Teal #74A695 - Main app primary */
     --primary-foreground: 0 0% 100%; /* White for contrast on teal */
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 208 25% 63.3%; /* Soft Blue #85A2B8 */
+    --accent: 208 25% 63.3%; /* Soft Blue #85A2B8 - Main app accent */
     --accent-foreground: 0 0% 100%; /* White for contrast on blue */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 160 18% 55.1%; /* Primary color for rings */
+    --ring: 160 18% 55.1%; /* Primary color for rings - Main app primary */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -34,15 +35,15 @@ body {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
 
-    /* Sidebar specific theme variables */
-    --sidebar-background: 220 15% 15%; /* Darker sidebar background */
-    --sidebar-foreground: 0 0% 95%; /* Light text for dark sidebar */
-    --sidebar-primary: 160 18% 55.1%; /* Teal for active/primary items in sidebar */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 10% 25%; /* Hover/accent for sidebar items */
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 10% 30%;
-    --sidebar-ring: 160 18% 55.1%;
+    /* Sidebar specific theme variables - NEW THEME BASED ON IMAGE */
+    --sidebar-background: 240 25% 18%; /* Dark Blue-Purple background */
+    --sidebar-foreground: 0 0% 95%;    /* Light text for dark sidebar */
+    --sidebar-primary: 260 65% 55%;     /* Vibrant Purple for active/primary items */
+    --sidebar-primary-foreground: 0 0% 100%; /* White text for active items */
+    --sidebar-accent: 240 25% 25%;      /* Slightly lighter Dark Blue-Purple for hover */
+    --sidebar-accent-foreground: 0 0% 100%;  /* White text for hover items */
+    --sidebar-border: 240 25% 22%;      /* Subtle border color */
+    --sidebar-ring: 260 65% 55%;        /* Ring color matches active item */
   }
 
   .dark {
@@ -52,33 +53,34 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 224 71.4% 4.1%;
     --popover-foreground: 0 0% 98%;
-    --primary: 160 18% 50.1%; /* Slightly adjusted teal for dark mode */
+    --primary: 160 18% 50.1%; /* Slightly adjusted teal for dark mode - Main app primary */
     --primary-foreground: 0 0% 100%;
     --secondary: 220 15% 15%;
     --secondary-foreground: 0 0% 98%;
     --muted: 220 15% 15%;
     --muted-foreground: 215.4 16.3% 56.9%;
-    --accent: 208 25% 58.3%; /* Slightly adjusted blue for dark mode */
+    --accent: 208 25% 58.3%; /* Slightly adjusted blue for dark mode - Main app accent */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 10% 30%;
     --input: 220 10% 30%;
-    --ring: 160 18% 50.1%;
+    --ring: 160 18% 50.1%; /* Ring color - Main app primary */
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    
-    --sidebar-background: 220 20% 10%; 
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 160 18% 50.1%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 20%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 10% 25%;
-    --sidebar-ring: 160 18% 50.1%;
+
+    /* Sidebar specific theme variables for dark mode - USING THE SAME NEW THEME */
+    --sidebar-background: 240 25% 14%; /* Even Darker Blue-Purple background for contrast with dark main */
+    --sidebar-foreground: 0 0% 95%;    /* Light text */
+    --sidebar-primary: 260 70% 60%;     /* Slightly brighter Vibrant Purple for active */
+    --sidebar-primary-foreground: 0 0% 100%; /* White text */
+    --sidebar-accent: 240 25% 22%;      /* Hover color */
+    --sidebar-accent-foreground: 0 0% 100%;  /* White text */
+    --sidebar-border: 240 25% 18%;      /* Border color */
+    --sidebar-ring: 260 70% 60%;        /* Ring color */
   }
 }
 
