@@ -17,8 +17,8 @@ import { format } from "date-fns";
 import { arSA } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import type { ReservedThesisTitle, UniversityWithSpecializationsAdmin, Specialization as SpecializationType } from "@/types/api";
-import { addReservedTitle, updateReservedTitle, getUniversitiesWithSpecializationsAdmin } from "@/lib/api";
+import type { ReservedThesisTitle, UniversityWithSpecializationsAdmin, Specialization as SpecializationType, Degree } from "@/types/api";
+import { addReservedTitle, updateReservedTitle, getUniversitiesWithSpecializationsAdmin, getDegrees } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const reservedTitleFormSchema = z.object({
@@ -26,7 +26,7 @@ const reservedTitleFormSchema = z.object({
   person_name: z.string().min(3, { message: "اسم الشخص يجب أن يكون 3 أحرف على الأقل." }),
   university_id: z.string().min(1, { message: "الرجاء اختيار الجامعة." }),
   specialization_id: z.string().min(1, { message: "الرجاء اختيار التخصص." }),
-  degree: z.string().min(2, { message: "الدرجة مطلوبة (مثال: ماجستير, دكتوراه)." }),
+  degree: z.string().min(1, { message: "الرجاء اختيار الدرجة العلمية." }), // Changed min from 2 to 1 as it's now a selection
   date: z.date({ required_error: "تاريخ الحجز مطلوب." }),
 });
 
@@ -43,6 +43,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
   
   const [universitiesWithSpecs, setUniversitiesWithSpecs] = useState<UniversityWithSpecializationsAdmin[]>([]);
   const [availableSpecializations, setAvailableSpecializations] = useState<SpecializationType[]>([]);
+  const [degrees, setDegrees] = useState<Degree[]>([]);
   const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
 
   const defaultValues = {
@@ -63,17 +64,28 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     async function fetchData() {
       setIsLoadingDropdowns(true);
       try {
-        const univs = await getUniversitiesWithSpecializationsAdmin();
+        const [univs, fetchedDegrees] = await Promise.all([
+          getUniversitiesWithSpecializationsAdmin(),
+          getDegrees()
+        ]);
+        
         setUniversitiesWithSpecs(univs);
+        setDegrees(fetchedDegrees);
+
         if (initialData?.university) {
           const foundUniv = univs.find(u => u.name === initialData.university);
           if (foundUniv) {
             form.setValue('university_id', foundUniv.id.toString());
-            // This will trigger the other useEffect to set specializations
+            // Specializations will be set by the dependent useEffect
           }
         }
+        if (initialData?.degree) {
+           // No need to find by ID, just set the name
+           form.setValue('degree', initialData.degree);
+        }
+
       } catch (err) {
-        toast({ title: "خطأ", description: "فشل تحميل بيانات الجامعات والتخصصات.", variant: "destructive" });
+        toast({ title: "خطأ", description: "فشل تحميل بيانات الجامعات أو الدرجات أو التخصصات.", variant: "destructive" });
       } finally {
         setIsLoadingDropdowns(false);
       }
@@ -90,17 +102,14 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       const newAvailableSpecializations = selectedUniv ? selectedUniv.specializations : [];
       setAvailableSpecializations(newAvailableSpecializations);
       
-      // If editing, try to set the initial specialization
       if (initialData?.specialization && selectedUniv && selectedUniv.name === initialData.university) {
         const foundSpec = newAvailableSpecializations.find(s => s.name === initialData.specialization);
         if (foundSpec) {
           form.setValue('specialization_id', foundSpec.id.toString());
         } else {
-          // If initial specialization not found in the new list (e.g., data inconsistency or university changed by user)
            form.setValue('specialization_id', ''); 
         }
       } else {
-         // If not editing or university changed, reset specialization if current one is not in new list
         const currentSpecId = form.getValues('specialization_id');
         if (currentSpecId && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecId)) {
           form.setValue('specialization_id', '');
@@ -111,7 +120,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       form.setValue('specialization_id', '');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university, initialData?.specialization]); // form is implicitly a dependency due to form.setValue/getValues
+  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university, initialData?.specialization]);
 
 
   async function onSubmit(data: ReservedTitleFormValues) {
@@ -119,19 +128,26 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
 
     const selectedUniversity = universitiesWithSpecs.find(u => u.id.toString() === data.university_id);
     const selectedSpecialization = availableSpecializations.find(s => s.id.toString() === data.specialization_id);
+    // const selectedDegree = degrees.find(d => d.name === data.degree); // We are sending name directly
 
     if (!selectedUniversity || !selectedSpecialization) {
       toast({ title: "خطأ", description: "الرجاء اختيار جامعة وتخصص صالحين.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
+    if (!data.degree) { // Ensure degree is selected
+      toast({ title: "خطأ", description: "الرجاء اختيار درجة علمية.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+
 
     const apiData = {
       title: data.title,
       person_name: data.person_name,
       university: selectedUniversity.name,
       specialization: selectedSpecialization.name,
-      degree: data.degree,
+      degree: data.degree, // Degree name is already in data.degree
       date: format(data.date, "yyyy-MM-dd"),
     };
 
@@ -203,17 +219,15 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                     <Select 
                       onValueChange={(value) => {
                         field.onChange(value);
-                         // Manually trigger revalidation or reset for specialization_id if needed, 
-                         // though useEffect should handle population.
                         form.setValue('specialization_id', ''); 
                       }} 
                       value={field.value} 
-                      disabled={isLoadingDropdowns}
+                      disabled={isLoadingDropdowns || universitiesWithSpecs.length === 0}
                       dir="rtl"
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : "اختر الجامعة"} />
+                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : universitiesWithSpecs.length === 0 ? "لا توجد جامعات" : "اختر الجامعة"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -267,9 +281,23 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>الدرجة العلمية</FormLabel>
-                    <FormControl>
-                      <Input placeholder="مثال: ماجستير" {...field} />
-                    </FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isLoadingDropdowns || degrees.length === 0}
+                      dir="rtl"
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingDropdowns ? "جاري التحميل..." : degrees.length === 0 ? "لا توجد درجات" : "اختر الدرجة العلمية"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {degrees.map((deg) => (
+                          <SelectItem key={deg.id} value={deg.name}>{deg.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -322,6 +350,8 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     </Card>
   );
 }
+    
+
     
 
     
