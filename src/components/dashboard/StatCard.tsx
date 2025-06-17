@@ -1,4 +1,4 @@
-import type React from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LucideIcon } from 'lucide-react';
 
@@ -10,7 +10,7 @@ interface StatCardProps {
   className?: string;
 }
 
-export function StatCard({ title, value, icon: Icon, description, className }: StatCardProps) {
+const StatCardComponent = ({ title, value, icon: Icon, description, className }: StatCardProps) => {
   return (
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -23,4 +23,6 @@ export function StatCard({ title, value, icon: Icon, description, className }: S
       </CardContent>
     </Card>
   );
-}
+};
+
+export const StatCard = React.memo(StatCardComponent);
