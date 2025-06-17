@@ -85,30 +85,36 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       }
     }
     fetchData();
-  }, [initialData, form, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, toast]); // form removed as it causes re-fetch on every value change of university_id
 
   const watchedUniversityId = form.watch('university_id');
 
   useEffect(() => {
     if (watchedUniversityId) {
       const selectedUniv = universitiesWithSpecs.find(uni => uni.id.toString() === watchedUniversityId);
-      setAvailableSpecializations(selectedUniv ? selectedUniv.specializations : []);
-      // Only reset specialization if it's a user action, not initial load.
-      // Check if the current specialization_id belongs to the new list of available specializations.
+      const newAvailableSpecializations = selectedUniv ? selectedUniv.specializations : [];
+      setAvailableSpecializations(newAvailableSpecializations);
+      
       const currentSpecId = form.getValues('specialization_id');
-      if (currentSpecId && selectedUniv && !selectedUniv.specializations.find(s => s.id.toString() === currentSpecId)) {
-         // If initialData specialization matches, do not reset, otherwise reset.
-         if(!(initialData && selectedUniv.name === initialData.university && selectedUniv.specializations.find(s => s.name === initialData.specialization && s.id.toString() === currentSpecId))){
-            form.setValue('specialization_id', '');
-         }
+      // If the current specialization_id is not in the new list of available specializations, reset it.
+      // But, don't reset if it's the initial load and the initialData specialization matches.
+      const isInitialSpecForThisUniv = initialData && 
+                                      selectedUniv && 
+                                      selectedUniv.name === initialData.university &&
+                                      newAvailableSpecializations.find(s => s.name === initialData.specialization && s.id.toString() === currentSpecId);
+
+      if (currentSpecId && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecId) && !isInitialSpecForThisUniv) {
+        form.setValue('specialization_id', '');
       }
     } else {
       setAvailableSpecializations([]);
-      if(!initialData) { // Only reset if not initial data load, or if university_id becomes truly empty
+      if(!initialData) { 
         form.setValue('specialization_id', '');
       }
     }
-  }, [watchedUniversityId, universitiesWithSpecs, form, initialData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedUniversityId, universitiesWithSpecs, initialData]); // form removed
 
 
   async function onSubmit(data: ReservedTitleFormValues) {
@@ -203,6 +209,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                       }} 
                       value={field.value} 
                       disabled={isLoadingDropdowns}
+                      dir="rtl"
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -232,6 +239,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                       onValueChange={field.onChange} 
                       value={field.value} 
                       disabled={isLoadingDropdowns || !watchedUniversityId || availableSpecializations.length === 0}
+                      dir="rtl"
                     >
                       <FormControl>
                         <SelectTrigger>
