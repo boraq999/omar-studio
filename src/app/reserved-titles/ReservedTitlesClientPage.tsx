@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Trash2, Search, FileLock2 } from 'lucide-react';
+import { Edit, Trash2, Search, FileLock2, FilterX } from 'lucide-react';
 import Link from 'next/link';
 import type { ReservedThesisTitle } from '@/types/api';
 import { searchReservedTitles as apiSearchReservedTitles, deleteReservedTitle as apiDeleteReservedTitle } from '@/lib/api';
@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns'; // For date formatting, if needed
+import { format } from 'date-fns'; 
 
 export function ReservedTitlesClientPage({ initialReservedTitles }: { initialReservedTitles: ReservedThesisTitle[] }) {
   const [reservedTitles, setReservedTitles] = useState<ReservedThesisTitle[]>(initialReservedTitles);
@@ -25,7 +25,8 @@ export function ReservedTitlesClientPage({ initialReservedTitles }: { initialRes
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!searchTerm.trim()) {
-        setReservedTitles(initialReservedTitles); // Reset to initial if search is empty
+        // Already disabled, but as a safeguard if called directly
+        setReservedTitles(initialReservedTitles); 
         return;
     }
     setIsLoading(true);
@@ -51,11 +52,20 @@ export function ReservedTitlesClientPage({ initialReservedTitles }: { initialRes
 
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'yyyy/MM/dd');
+      return format(new Date(dateString.split('/').reverse().join('-')), 'yyyy/MM/dd');
     } catch {
-      return dateString; // Fallback if date is not valid
+      return dateString; 
     }
   };
+  
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setReservedTitles(initialReservedTitles);
+  };
+
+  const isSearchActive = searchTerm.trim() !== '';
+  const isSearchButtonDisabled = isLoading || !isSearchActive;
+  const isClearFiltersButtonDisabled = isLoading || !isSearchActive;
   
   if (initialReservedTitles === null) {
     return (
@@ -68,19 +78,25 @@ export function ReservedTitlesClientPage({ initialReservedTitles }: { initialRes
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSearch} className="flex gap-2 p-4 border rounded-lg shadow-sm bg-card">
-        <Input
-          type="text"
-          placeholder="بحث عن عنوان محجوز..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-grow"
-        />
-        <Button type="submit" disabled={isLoading}>
-          <Search className="ml-2 h-4 w-4" />
-          {isLoading ? 'جار البحث...' : 'بحث'}
-        </Button>
-      </form>
+      <Card className="p-4 shadow-sm">
+        <form onSubmit={handleSearch} className="flex flex-wrap gap-2 items-center">
+          <Input
+            type="text"
+            placeholder="بحث عن عنوان محجوز..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-grow min-w-[200px]"
+          />
+          <Button type="submit" disabled={isSearchButtonDisabled}>
+            <Search className="ml-2 h-4 w-4" />
+            {isLoading ? 'جار البحث...' : 'بحث'}
+          </Button>
+          <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isClearFiltersButtonDisabled}>
+            <FilterX className="ml-2 h-4 w-4" />
+            مسح الفلاتر
+          </Button>
+        </form>
+      </Card>
 
       {isLoading && (
          <div className="space-y-2">

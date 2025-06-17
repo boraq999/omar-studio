@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Archive, Edit, FileText, Search, Trash2, Download } from 'lucide-react';
+import { Archive, Edit, FileText, Search, Trash2, Download, FilterX } from 'lucide-react';
 import Link from 'next/link';
 import type { Thesis, University, Specialization, Degree, ThesisYear } from '@/types/api';
 import { searchTheses as apiSearchTheses, archiveThesis as apiArchiveThesis } from '@/lib/api';
@@ -70,39 +70,71 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
     setFilters(prev => ({ ...prev, [filterName]: value }));
   };
 
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFilters({ university_id: '', specialization_id: '', degree_id: '', year: '' });
+    setTheses(initialTheses);
+  };
+
+  const isAnyFilterActive = 
+    searchTerm.trim() !== '' || 
+    filters.university_id !== '' || 
+    filters.specialization_id !== '' || 
+    filters.degree_id !== '' || 
+    filters.year !== '';
+
+  const isSearchButtonDisabled = isLoading || !isAnyFilterActive;
+  const isClearFiltersButtonDisabled = isLoading || !isAnyFilterActive;
+
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-4 border rounded-lg shadow-sm bg-card">
-        <Input
-          type="text"
-          placeholder="بحث بالعنوان..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="md:col-span-2 lg:col-span-2"
-        />
-         <Select value={filters.university_id} onValueChange={(value) => handleFilterChange('university_id', value)}>
-            <SelectTrigger><SelectValue placeholder="اختر الجامعة" /></SelectTrigger>
-            <SelectContent>
-              {universities.map(uni => <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>)}
-            </SelectContent>
-        </Select>
-        <Select value={filters.specialization_id} onValueChange={(value) => handleFilterChange('specialization_id', value)}>
-            <SelectTrigger><SelectValue placeholder="اختر التخصص" /></SelectTrigger>
-            <SelectContent>
-              {specializations.map(spec => <SelectItem key={spec.id} value={spec.id.toString()}>{spec.name}</SelectItem>)}
-            </SelectContent>
-        </Select>
-        <Select value={filters.degree_id} onValueChange={(value) => handleFilterChange('degree_id', value)}>
-            <SelectTrigger><SelectValue placeholder="اختر الدرجة" /></SelectTrigger>
-            <SelectContent>
-              {degrees.map(deg => <SelectItem key={deg.id} value={deg.id.toString()}>{deg.name}</SelectItem>)}
-            </SelectContent>
-        </Select>
-        <Button type="submit" disabled={isLoading} className="w-full lg:col-span-1">
-          <Search className="ml-2 h-4 w-4" />
-          {isLoading ? 'جار البحث...' : 'بحث'}
-        </Button>
-      </form>
+      <Card className="p-4 shadow-sm">
+        <form onSubmit={handleSearch}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+            <Input
+              type="text"
+              placeholder="بحث بالعنوان..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="sm:col-span-2 md:col-span-3 lg:col-span-1"
+            />
+            <Select value={filters.university_id} onValueChange={(value) => handleFilterChange('university_id', value)}>
+                <SelectTrigger><SelectValue placeholder="اختر الجامعة" /></SelectTrigger>
+                <SelectContent>
+                  {universities.map(uni => <SelectItem key={uni.id} value={uni.id.toString()}>{uni.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            <Select value={filters.specialization_id} onValueChange={(value) => handleFilterChange('specialization_id', value)}>
+                <SelectTrigger><SelectValue placeholder="اختر التخصص" /></SelectTrigger>
+                <SelectContent>
+                  {specializations.map(spec => <SelectItem key={spec.id} value={spec.id.toString()}>{spec.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            <Select value={filters.degree_id} onValueChange={(value) => handleFilterChange('degree_id', value)}>
+                <SelectTrigger><SelectValue placeholder="اختر الدرجة" /></SelectTrigger>
+                <SelectContent>
+                  {degrees.map(deg => <SelectItem key={deg.id} value={deg.id.toString()}>{deg.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            <Select value={filters.year} onValueChange={(value) => handleFilterChange('year', value)}>
+                <SelectTrigger><SelectValue placeholder="اختر السنة" /></SelectTrigger>
+                <SelectContent>
+                  {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isClearFiltersButtonDisabled}>
+              <FilterX className="ml-2 h-4 w-4" />
+              مسح الفلاتر
+            </Button>
+            <Button type="submit" disabled={isSearchButtonDisabled}>
+              <Search className="ml-2 h-4 w-4" />
+              {isLoading ? 'جار البحث...' : 'بحث'}
+            </Button>
+          </div>
+        </form>
+      </Card>
 
       {isLoading && (
         <div className="space-y-2">
