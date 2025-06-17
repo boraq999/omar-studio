@@ -1,0 +1,217 @@
+
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import { arSA } from "date-fns/locale"; // For Arabic date localization
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import type { ReservedThesisTitle } from "@/types/api";
+import { addReservedTitle, updateReservedTitle } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React from "react";
+
+const reservedTitleFormSchema = z.object({
+  title: z.string().min(5, { message: "العنوان يجب أن يكون 5 أحرف على الأقل." }),
+  person_name: z.string().min(3, { message: "اسم الشخص يجب أن يكون 3 أحرف على الأقل." }),
+  university: z.string().min(3, { message: "اسم الجامعة مطلوب." }),
+  specialization: z.string().min(3, { message: "التخصص مطلوب." }),
+  degree: z.string().min(2, { message: "الدرجة مطلوبة (مثال: ماجستير, دكتوراه)." }),
+  date: z.date({ required_error: "تاريخ الحجز مطلوب." }),
+});
+
+type ReservedTitleFormValues = z.infer<typeof reservedTitleFormSchema>;
+
+interface ReservedTitleFormProps {
+  initialData?: ReservedThesisTitle;
+}
+
+export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const defaultValues = initialData
+    ? {
+        ...initialData,
+        date: initialData.date ? new Date(initialData.date) : new Date(),
+      }
+    : {
+        title: "",
+        person_name: "",
+        university: "",
+        specialization: "",
+        degree: "",
+        date: new Date(),
+      };
+
+  const form = useForm<ReservedTitleFormValues>({
+    resolver: zodResolver(reservedTitleFormSchema),
+    defaultValues,
+  });
+
+  async function onSubmit(data: ReservedTitleFormValues) {
+    setIsSubmitting(true);
+    const apiData = {
+      ...data,
+      date: format(data.date, "yyyy-MM-dd"), // Format date for API
+    };
+
+    try {
+      if (initialData) {
+        await updateReservedTitle(initialData.id, apiData);
+        toast({ title: "نجاح", description: "تم تعديل العنوان المحجوز بنجاح." });
+      } else {
+        await addReservedTitle(apiData);
+        toast({ title: "نجاح", description: "تمت إضافة العنوان المحجوز بنجاح." });
+      }
+      router.push("/reserved-titles");
+      router.refresh();
+    } catch (error: any) {
+      toast({
+        title: "خطأ",
+        description: error.message || (initialData ? "فشل تعديل العنوان." : "فشل إضافة العنوان."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Card className="max-w-2xl mx-auto shadow-xl">
+      <CardHeader>
+        <CardTitle className="font-headline text-2xl text-primary">
+          {initialData ? "تعديل عنوان محجوز" : "إضافة عنوان محجوز جديد"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>عنوان الرسالة المقترح</FormLabel>
+                  <FormControl>
+                    <Input placeholder="مثال: دراسة تأثير الذكاء الاصطناعي..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="person_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>اسم الشخص الحاجز</FormLabel>
+                    <FormControl>
+                      <Input placeholder="مثال: فاطمة علي" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="university"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الجامعة</FormLabel>
+                    <FormControl>
+                      <Input placeholder="مثال: جامعة طرابلس" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FormField
+                control={form.control}
+                name="specialization"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>التخصص</FormLabel>
+                    <FormControl>
+                      <Input placeholder="مثال: علوم الحاسوب" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="degree"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الدرجة العلمية</FormLabel>
+                    <FormControl>
+                      <Input placeholder="مثال: ماجستير" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>تاريخ الحجز</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-right font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="ml-2 h-4 w-4" />
+                            {field.value ? format(field.value, "PPP", { locale: arSA }) : <span>اختر تاريخ</span>}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                          initialFocus
+                          locale={arSA}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+               {isSubmitting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              {initialData ? "حفظ التعديلات" : "إضافة العنوان"}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
