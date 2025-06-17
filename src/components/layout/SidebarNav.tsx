@@ -36,9 +36,8 @@ export function SidebarNav() {
     <SidebarMenu>
       {navItems.map((item) => (
         <SidebarMenuItem key={item.href}>
-          <Link href={item.href} passHref legacyBehavior>
+          <Link href={item.href}>
             <SidebarMenuButton
-              as="a" // Important for Link to work correctly with asChild pattern
               variant="default"
               className={cn(
                 pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
