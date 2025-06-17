@@ -119,7 +119,7 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
             <Select value={filters.year} onValueChange={(value) => handleFilterChange('year', value)}>
                 <SelectTrigger><SelectValue placeholder="اختر السنة" /></SelectTrigger>
                 <SelectContent>
-                  {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                  {years.filter(y => y !== "").map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
             </Select>
           </div>

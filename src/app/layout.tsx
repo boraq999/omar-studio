@@ -6,6 +6,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Al-Alem Admin Panel',
   description: 'Admin panel for Al-Alem Central Library',
+  icons: null, // Explicitly disable automatic favicon handling
 };
 
 export default function RootLayout({
