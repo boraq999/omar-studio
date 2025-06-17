@@ -26,7 +26,7 @@ const reservedTitleFormSchema = z.object({
   person_name: z.string().min(3, { message: "اسم الشخص يجب أن يكون 3 أحرف على الأقل." }),
   university_id: z.string().min(1, { message: "الرجاء اختيار الجامعة." }),
   specialization_id: z.string().min(1, { message: "الرجاء اختيار التخصص." }),
-  degree: z.string().min(1, { message: "الرجاء اختيار الدرجة العلمية." }), // Changed min from 2 to 1 as it's now a selection
+  degree: z.string().min(1, { message: "الرجاء اختيار الدرجة العلمية." }),
   date: z.date({ required_error: "تاريخ الحجز مطلوب." }),
 });
 
@@ -52,7 +52,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       university_id: "", 
       specialization_id: "", 
       degree: initialData?.degree || "",
-      date: initialData?.date ? new Date(initialData.date) : new Date(),
+      date: initialData?.date ? new Date(initialData.date.split('/').reverse().join('-')) : new Date(), // Handle DD/MM/YYYY from API if needed for edit
   };
 
   const form = useForm<ReservedTitleFormValues>({
@@ -76,23 +76,21 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
           const foundUniv = univs.find(u => u.name === initialData.university);
           if (foundUniv) {
             form.setValue('university_id', foundUniv.id.toString());
-            // Specializations will be set by the dependent useEffect
           }
         }
         if (initialData?.degree) {
-           // No need to find by ID, just set the name
            form.setValue('degree', initialData.degree);
         }
 
       } catch (err) {
-        toast({ title: "خطأ", description: "فشل تحميل بيانات الجامعات أو الدرجات أو التخصصات.", variant: "destructive" });
+        toast({ title: "خطأ", description: "فشل تحميل بيانات الجامعات أو الدرجات.", variant: "destructive" });
       } finally {
         setIsLoadingDropdowns(false);
       }
     }
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Fetch data only once on mount
+  }, []);
 
   const watchedUniversityId = form.watch('university_id');
 
@@ -102,25 +100,32 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       const newAvailableSpecializations = selectedUniv ? selectedUniv.specializations : [];
       setAvailableSpecializations(newAvailableSpecializations);
       
+      const currentSpecIdFromForm = form.getValues('specialization_id');
+
       if (initialData?.specialization && selectedUniv && selectedUniv.name === initialData.university) {
         const foundSpec = newAvailableSpecializations.find(s => s.name === initialData.specialization);
         if (foundSpec) {
-          form.setValue('specialization_id', foundSpec.id.toString());
+          if(currentSpecIdFromForm !== foundSpec.id.toString()){ // only set if different to avoid re-render loop
+             form.setValue('specialization_id', foundSpec.id.toString());
+          }
         } else {
-           form.setValue('specialization_id', ''); 
+           if(currentSpecIdFromForm !== ''){
+            form.setValue('specialization_id', ''); 
+           }
         }
       } else {
-        const currentSpecId = form.getValues('specialization_id');
-        if (currentSpecId && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecId)) {
+        if (currentSpecIdFromForm && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecIdFromForm)) {
           form.setValue('specialization_id', '');
         }
       }
     } else {
       setAvailableSpecializations([]);
-      form.setValue('specialization_id', '');
+      if(form.getValues('specialization_id') !== ''){
+        form.setValue('specialization_id', '');
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university, initialData?.specialization]);
+  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university, initialData?.specialization, form.getValues('specialization_id')]);
 
 
   async function onSubmit(data: ReservedTitleFormValues) {
@@ -128,27 +133,25 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
 
     const selectedUniversity = universitiesWithSpecs.find(u => u.id.toString() === data.university_id);
     const selectedSpecialization = availableSpecializations.find(s => s.id.toString() === data.specialization_id);
-    // const selectedDegree = degrees.find(d => d.name === data.degree); // We are sending name directly
-
+    
     if (!selectedUniversity || !selectedSpecialization) {
       toast({ title: "خطأ", description: "الرجاء اختيار جامعة وتخصص صالحين.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
-    if (!data.degree) { // Ensure degree is selected
+    if (!data.degree) { 
       toast({ title: "خطأ", description: "الرجاء اختيار درجة علمية.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
-
 
     const apiData = {
       title: data.title,
       person_name: data.person_name,
       university: selectedUniversity.name,
       specialization: selectedSpecialization.name,
-      degree: data.degree, // Degree name is already in data.degree
-      date: format(data.date, "yyyy-MM-dd"),
+      degree: data.degree,
+      date: format(data.date, "dd/MM/yyyy"), // Updated date format
     };
 
     try {
@@ -171,6 +174,21 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       setIsSubmitting(false);
     }
   }
+  
+  useEffect(() => { // For setting initial values correctly on edit
+    if (initialData) {
+        form.reset({
+            title: initialData.title,
+            person_name: initialData.person_name,
+            university_id: universitiesWithSpecs.find(u => u.name === initialData.university)?.id.toString() || "",
+            specialization_id: "", // Will be set by dependent useEffect
+            degree: initialData.degree,
+            date: initialData.date ? new Date(initialData.date.split('/').reverse().join('-')) : new Date(),
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, universitiesWithSpecs, form.reset]);
+
 
   return (
     <Card className="max-w-2xl mx-auto shadow-xl">
@@ -219,7 +237,6 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                     <Select 
                       onValueChange={(value) => {
                         field.onChange(value);
-                        form.setValue('specialization_id', ''); 
                       }} 
                       value={field.value} 
                       disabled={isLoadingDropdowns || universitiesWithSpecs.length === 0}
