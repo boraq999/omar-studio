@@ -26,7 +26,7 @@ const reservedTitleFormSchema = z.object({
   person_name: z.string().min(3, { message: "اسم الشخص يجب أن يكون 3 أحرف على الأقل." }),
   university_id: z.string().min(1, { message: "الرجاء اختيار الجامعة." }),
   specialization_id: z.string().min(1, { message: "الرجاء اختيار التخصص." }),
-  degree: z.string().min(1, { message: "الرجاء اختيار الدرجة العلمية." }),
+  degree: z.string().min(1, { message: "الرجاء اختيار الدرجة العلمية." }), // Will store degree name
   date: z.date({ required_error: "تاريخ الحجز مطلوب." }),
 });
 
@@ -46,13 +46,13 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
   const [degrees, setDegrees] = useState<Degree[]>([]);
   const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
 
-  const defaultValues = {
+  const defaultValues: ReservedTitleFormValues = {
       title: initialData?.title || "",
       person_name: initialData?.person_name || "",
       university_id: "", 
       specialization_id: "", 
-      degree: initialData?.degree || "",
-      date: initialData?.date ? new Date(initialData.date.split('/').reverse().join('-')) : new Date(), // Handle DD/MM/YYYY from API if needed for edit
+      degree: initialData?.degree || "", // Expects degree name
+      date: initialData?.date ? new Date(initialData.date.split('/').reverse().join('-')) : new Date(),
   };
 
   const form = useForm<ReservedTitleFormValues>({
@@ -72,14 +72,17 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
         setUniversitiesWithSpecs(univs);
         setDegrees(fetchedDegrees);
 
-        if (initialData?.university) {
-          const foundUniv = univs.find(u => u.name === initialData.university);
-          if (foundUniv) {
-            form.setValue('university_id', foundUniv.id.toString());
-          }
-        }
-        if (initialData?.degree) {
-           form.setValue('degree', initialData.degree);
+        if (initialData) {
+            form.setValue('title', initialData.title);
+            form.setValue('person_name', initialData.person_name);
+            const foundUniv = univs.find(u => u.name === initialData.university);
+            if (foundUniv) {
+              form.setValue('university_id', foundUniv.id.toString());
+            }
+            form.setValue('degree', initialData.degree); // Set degree name
+            if (initialData.date) {
+              form.setValue('date', new Date(initialData.date.split('/').reverse().join('-')));
+            }
         }
 
       } catch (err) {
@@ -90,12 +93,12 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     }
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialData]); // form.setValue should not be in deps
 
   const watchedUniversityId = form.watch('university_id');
 
   useEffect(() => {
-    if (watchedUniversityId) {
+    if (watchedUniversityId && universitiesWithSpecs.length > 0) {
       const selectedUniv = universitiesWithSpecs.find(uni => uni.id.toString() === watchedUniversityId);
       const newAvailableSpecializations = selectedUniv ? selectedUniv.specializations : [];
       setAvailableSpecializations(newAvailableSpecializations);
@@ -105,7 +108,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       if (initialData?.specialization && selectedUniv && selectedUniv.name === initialData.university) {
         const foundSpec = newAvailableSpecializations.find(s => s.name === initialData.specialization);
         if (foundSpec) {
-          if(currentSpecIdFromForm !== foundSpec.id.toString()){ // only set if different to avoid re-render loop
+          if(currentSpecIdFromForm !== foundSpec.id.toString()){
              form.setValue('specialization_id', foundSpec.id.toString());
           }
         } else {
@@ -114,18 +117,19 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
            }
         }
       } else {
+        // Reset specialization if university changes or if current spec is not in new list
         if (currentSpecIdFromForm && !newAvailableSpecializations.find(s => s.id.toString() === currentSpecIdFromForm)) {
           form.setValue('specialization_id', '');
         }
       }
     } else {
       setAvailableSpecializations([]);
-      if(form.getValues('specialization_id') !== ''){
+       if(form.getValues('specialization_id') !== ''){
         form.setValue('specialization_id', '');
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university, initialData?.specialization, form.getValues('specialization_id')]);
+  }, [watchedUniversityId, universitiesWithSpecs, initialData?.university, initialData?.specialization]);
 
 
   async function onSubmit(data: ReservedTitleFormValues) {
@@ -150,8 +154,8 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       person_name: data.person_name,
       university: selectedUniversity.name,
       specialization: selectedSpecialization.name,
-      degree: data.degree,
-      date: format(data.date, "dd/MM/yyyy"), // Updated date format
+      degree: data.degree, // This is the degree name
+      date: format(data.date, "dd/MM/yyyy"), 
     };
 
     try {
@@ -165,9 +169,10 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
       router.push("/reserved-titles");
       router.refresh();
     } catch (error: any) {
+      const errorMessage = error?.errors ? Object.values(error.errors).flat().join(', ') : error.message;
       toast({
         title: "خطأ",
-        description: error.message || (initialData ? "فشل تعديل العنوان." : "فشل إضافة العنوان."),
+        description: errorMessage || (initialData ? "فشل تعديل العنوان." : "فشل إضافة العنوان."),
         variant: "destructive",
       });
     } finally {
@@ -175,20 +180,24 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     }
   }
   
-  useEffect(() => { // For setting initial values correctly on edit
-    if (initialData) {
+  useEffect(() => { 
+    if (initialData && universitiesWithSpecs.length > 0 && degrees.length > 0) {
+        const univMatch = universitiesWithSpecs.find(u => u.name === initialData.university);
+        const degreeMatch = initialData.degree; // Already a string name
+
         form.reset({
             title: initialData.title,
             person_name: initialData.person_name,
-            university_id: universitiesWithSpecs.find(u => u.name === initialData.university)?.id.toString() || "",
-            specialization_id: "", // Will be set by dependent useEffect
-            degree: initialData.degree,
+            university_id: univMatch?.id.toString() || "",
+            specialization_id: "", 
+            degree: degreeMatch || "",
             date: initialData.date ? new Date(initialData.date.split('/').reverse().join('-')) : new Date(),
         });
+    } else if (!initialData) {
+        form.reset(defaultValues);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData, universitiesWithSpecs, form.reset]);
-
+  }, [initialData, universitiesWithSpecs, degrees]); // Removed form.reset from dependencies
 
   return (
     <Card className="max-w-2xl mx-auto shadow-xl">
@@ -237,6 +246,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                     <Select 
                       onValueChange={(value) => {
                         field.onChange(value);
+                        // form.setValue('specialization_id', ''); // Reset specialization on university change
                       }} 
                       value={field.value} 
                       disabled={isLoadingDropdowns || universitiesWithSpecs.length === 0}
@@ -300,7 +310,7 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
                     <FormLabel>الدرجة العلمية</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      value={field.value}
+                      value={field.value} // Should be degree name string
                       disabled={isLoadingDropdowns || degrees.length === 0}
                       dir="rtl"
                     >
@@ -372,3 +382,4 @@ export function ReservedTitleForm({ initialData }: ReservedTitleFormProps) {
     
 
     
+
