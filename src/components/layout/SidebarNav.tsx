@@ -3,29 +3,42 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, BookMarked, Archive, Building2, FileLock2, Cog } from 'lucide-react';
+import { LayoutDashboard, BookMarked, Archive, Building2, FileLock2, Cog, UsersRound } from 'lucide-react'; // Added UsersRound
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
-const navItems = [
+const navItemsBase = [
   { href: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
   { href: '/theses', label: 'الرسائل', icon: BookMarked },
   { href: '/archive', label: 'الأرشيف', icon: Archive },
   { href: '/universities', label: 'الجامعات والتخصصات', icon: Building2 },
   { href: '/reserved-titles', label: 'العناوين المحجوزة', icon: FileLock2 },
-  // { href: '/settings', label: 'الإعدادات', icon: Cog }, // Future enhancement
 ];
+
+const adminNavItems = [
+  { href: '/users', label: 'إدارة المستخدمين', icon: UsersRound, adminOnly: true },
+];
+
+// { href: '/settings', label: 'الإعدادات', icon: Cog }, // Future enhancement
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { currentUser } = useAuth();
+
+  let navItems = [...navItemsBase];
+  if (currentUser?.role === 'admin') {
+    navItems = [...navItems, ...adminNavItems];
+  }
+
 
   return (
     <SidebarMenu>
       {navItems.map((item) => (
         <SidebarMenuItem key={item.href}>
-          <Link href={item.href}>
+          <Link href={item.href} passHref legacyBehavior>
             <SidebarMenuButton
-              asChild={false} 
+              as="a" // Important for Link to work correctly with asChild pattern
               variant="default"
               className={cn(
                 pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
@@ -36,7 +49,7 @@ export function SidebarNav() {
               tooltip={item.label}
               isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
             >
-              <item.icon className="h-5 w-5" /> {/* Icon size is controlled by sidebarMenuButtonVariants base style now */}
+              <item.icon className="h-5 w-5" />
               <span className="truncate font-headline">{item.label}</span>
             </SidebarMenuButton>
           </Link>
