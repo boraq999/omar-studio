@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
-import { Combobox } from '@/components/ui/combobox'; // Added Combobox import
+import { Combobox } from '@/components/ui/combobox';
 
 
 interface ThesesClientPageProps {
@@ -73,7 +73,7 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
   const handleClearFilters = () => {
     setSearchTerm('');
     setFilters({ university_id: '', specialization_id: '', degree_id: '', year: '' });
-    setTheses(initialTheses); // Assuming initialTheses is the full unfiltered list
+    setTheses(initialTheses); 
   };
 
   const isAnyFilterActive = 
