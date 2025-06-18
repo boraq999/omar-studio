@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -9,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Archive, Edit, FileText, Search, Trash2, Download, FilterX } from 'lucide-react';
 import Link from 'next/link';
 import type { Thesis, University, Specialization, Degree, ThesisYear } from '@/types/api';
-import { searchTheses as apiSearchTheses, archiveThesis as apiArchiveThesis } from '@/lib/api';
+import { searchTheses as apiSearchTheses, archiveThesis as apiArchiveThesis, getLatestTheses } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -76,6 +75,19 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
     setTheses(initialTheses); 
   };
 
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getLatestTheses();
+      setTheses(data);
+      toast({ title: 'تم التحديث', description: 'تم تحديث بيانات الرسائل.' });
+    } catch (error) {
+      toast({ title: 'خطأ في التحديث', description: 'تعذر تحديث بيانات الرسائل.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isAnyFilterActive = 
     searchTerm.trim() !== '' || 
     filters.university_id !== '' || 
@@ -93,6 +105,11 @@ export function ThesesClientPage({ initialTheses, universities, specializations,
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button onClick={handleRefresh} disabled={isLoading} variant="outline">
+          {isLoading ? 'جاري التحديث...' : 'تحديث'}
+        </Button>
+      </div>
       <Card className="p-4 shadow-sm">
         <form onSubmit={handleSearch}>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
