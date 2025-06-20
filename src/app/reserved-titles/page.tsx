@@ -7,6 +7,8 @@ import { PlusCircle } from 'lucide-react';
 import { ReservedTitlesClientPage } from './ReservedTitlesClientPage';
 import { getLatestReservedTitles } from '@/lib/api';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ReservedTitlesPage() {
   const initialReservedTitles = await getLatestReservedTitles().catch(() => []);
 
@@ -24,4 +26,3 @@ export default async function ReservedTitlesPage() {
     </AppLayout>
   );
 }
-

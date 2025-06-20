@@ -7,6 +7,8 @@ import { PlusCircle } from 'lucide-react';
 import { ThesesClientPage } from './ThesesClientPage'; // Client component for interactivity
 import { getLatestTheses, getUniversities, getSpecializations, getDegrees, getThesisYears } from '@/lib/api';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ThesesPage() {
   // Fetch initial data for the client component
   // This data can be passed as props or fetched client-side as well
